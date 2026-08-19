@@ -1,5 +1,6 @@
 (() => {
   let isRollingAnimation = false;
+  let pollHandle = null;
   const diceFaces = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
   let onlineState = null;
 
@@ -8,7 +9,12 @@
     onlineState = await response.json();
 
     if (onlineState.error) {
-      document.body.innerHTML = `<h1>${onlineState.error}</h1>`;
+      clearInterval(pollHandle);
+      document.body.innerHTML = `
+        <h1>Лобби закрыто</h1>
+        <p>Создатель закрыл лобби, либо оно больше не существует.</p>
+        <p><a href="/dice/">← К списку лобби</a></p>
+      `;
       return;
     }
 
@@ -54,6 +60,12 @@
     }
 
     drawOnlineBoard();
+
+    const leaveBtn = document.querySelector("form[action$='/leave'] button");
+    if (leaveBtn && !IS_CREATOR) {
+      leaveBtn.disabled = onlineState.status === "playing";
+      leaveBtn.title = leaveBtn.disabled ? "Нельзя покинуть комнату во время игры" : "";
+    }
 
     const myPlayer = onlineState.players.find((p) => p.login === CURRENT_LOGIN);
     const rollBtn = document.getElementById("rollBtn");
@@ -228,6 +240,6 @@
   }
 
   window.rollDiceOnline = rollDiceOnline;
-  setInterval(loadRoom, 1500);
+  pollHandle = setInterval(loadRoom, 1500);
   loadRoom();
 })();

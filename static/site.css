@@ -34,16 +34,20 @@ h1 {
   margin-bottom: 24px;
 }
 
-input {
+input,
+select {
   width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
   border: 2px solid #ddd;
   font-size: 16px;
   margin-bottom: 14px;
+  font-family: inherit;
+  background: #fff;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: none;
   border-color: #2575fc;
 }
@@ -146,4 +150,90 @@ input:focus {
 .game-card .desc {
   font-size: 13px;
   color: #666;
+}
+
+/* --- per-game lobby browser --- */
+
+.lobby-card {
+  max-width: 640px;
+}
+
+.lobby-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.lobby-topbar .back-link {
+  color: #999;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.lobby-topbar .back-link:hover {
+  text-decoration: underline;
+}
+
+.btn-small {
+  width: auto;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.lobby-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.lobby-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #999;
+  padding: 6px 8px;
+  border-bottom: 2px solid #eee;
+}
+
+.lobby-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.lobby-status {
+  font-weight: 600;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.lobby-status.waiting {
+  background: #fff4e0;
+  color: #b8720a;
+}
+
+.lobby-status.playing {
+  background: #e3f6e8;
+  color: #227a2c;
+}
+
+.lobby-status.finished {
+  background: #eee;
+  color: #888;
+}
+
+.lobby-empty {
+  color: #888;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.lobby-create-form {
+  margin: 20px 0 4px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
 }

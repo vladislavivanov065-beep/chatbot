@@ -1,5 +1,6 @@
 (function () {
   const token = window.PLAYER_TOKEN;
+  const lobbyId = window.LOBBY_ID;
   const socket = io('/chess');
 
   const boardEl = document.getElementById('board');
@@ -49,7 +50,12 @@
     .catch(() => {});
 
   socket.on('connect', () => {
-    socket.emit('register', { token });
+    socket.emit('register', { token, lobby_id: lobbyId });
+  });
+
+  socket.on('lobby_closed', (data) => {
+    alert((data && data.message) || 'Лобби закрыто.');
+    window.location.href = '/chess/';
   });
 
   socket.on('state', (state) => {
@@ -77,12 +83,12 @@
   });
 
   joinBtn.addEventListener('click', () => {
-    socket.emit('join', { token });
+    socket.emit('join', { token, lobby_id: lobbyId });
   });
 
   restartBtn.addEventListener('click', () => {
     if (!window.confirm('Начать партию заново для всех текущих игроков?')) return;
-    socket.emit('restart', { token });
+    socket.emit('restart', { token, lobby_id: lobbyId });
   });
 
   let flashTimer = null;
@@ -247,7 +253,7 @@
     cancelAbility();
 
     if (def.flow === 'instant') {
-      socket.emit('use_ability', { token, ability: key, params: {} });
+      socket.emit('use_ability', { token, lobby_id: lobbyId, ability: key, params: {} });
       return;
     }
     pendingAbility = key;
@@ -288,7 +294,7 @@
       if (isSkipTarget) {
         row.classList.add('targetable');
         row.addEventListener('click', () => {
-          socket.emit('use_ability', { token, ability: 'skip_turn', params: { target_seat: sid } });
+          socket.emit('use_ability', { token, lobby_id: lobbyId, ability: 'skip_turn', params: { target_seat: sid } });
           cancelAbility();
         });
       }
@@ -415,7 +421,7 @@
     if (selected) {
       const isTarget = legalTargets.some(([tr, tc]) => tr === r && tc === c);
       if (isTarget) {
-        socket.emit('move', { token, from: selected, to: [r, c] });
+        socket.emit('move', { token, lobby_id: lobbyId, from: selected, to: [r, c] });
         selected = null;
         legalTargets = [];
         renderBoard();
@@ -426,7 +432,7 @@
     if (myTurn && piece && piece.seat === s.my_seat) {
       selected = [r, c];
       legalTargets = [];
-      socket.emit('legal_moves', { token, pos: [r, c] });
+      socket.emit('legal_moves', { token, lobby_id: lobbyId, pos: [r, c] });
       renderBoard();
     } else {
       selected = null;
@@ -447,7 +453,7 @@
       abilityStage = 'need-target';
       abilityTargets = [];
       if (key === 'attack_through') {
-        socket.emit('attack_through_targets', { token, pos: [r, c] });
+        socket.emit('attack_through_targets', { token, lobby_id: lobbyId, pos: [r, c] });
       } else if (key === 'teleport') {
         abilityTargets = s.cells.filter(([cr, cc]) => !hasPieceAt(s, cr, cc));
       }
@@ -468,7 +474,7 @@
       } else if (key === 'explosion') {
         params = { center: [r, c] };
       }
-      socket.emit('use_ability', { token, ability: key, params });
+      socket.emit('use_ability', { token, lobby_id: lobbyId, ability: key, params });
       cancelAbility();
     }
   }

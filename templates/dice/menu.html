@@ -4,71 +4,76 @@
 <meta charset="UTF-8">
 <title>Кости на доске</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="{{ url_for('static', filename='dice/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
 </head>
 <body>
-
-<a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
-
-<h1>🎲 Кости на доске</h1>
-
-<div id="room-menu">
-    <h2>Комнаты</h2>
-    <p>
-        Вы можете создать максимум <b>3 комнаты</b>.
-        Если создать новую комнату сверх лимита, самая старая ваша комната будет удалена.
-    </p>
+<div class="card lobby-card">
+    <div class="lobby-topbar">
+        <h1 style="margin:0;">🎲 Кости на доске</h1>
+        <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+    </div>
+    <p class="subtitle">Собери 4 фишки в ряд первым</p>
 
     {% if error %}<p class="error-text">{{ error }}</p>{% endif %}
 
-    {% if created_rooms %}
-        <h3>Ваши созданные комнаты</h3>
-
-        {% for room in created_rooms %}
-            <p>
-                Код: <b>{{ room["code"] }}</b><br>
-                Игроков: {{ room["max_players"] }}<br>
-                Статус: {{ room["status"] }}<br>
-                <a href="{{ url_for('dice.room', code=room['code']) }}">Открыть комнату</a>
-            </p>
-            <hr>
-        {% endfor %}
+    {% if lobbies %}
+        <table class="lobby-table">
+            <thead>
+                <tr>
+                    <th>Код</th>
+                    <th>Создатель</th>
+                    <th>Игроков</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in lobbies %}
+                <tr>
+                    <td><b>{{ l.code }}</b></td>
+                    <td>{{ l.creator }}</td>
+                    <td>{{ l.players|length }} / {{ l.max_players }}</td>
+                    <td><span class="lobby-status {{ l.status }}">{{ "идёт игра" if l.status == "playing" else "ожидание" }}</span></td>
+                    <td>
+                        {% if l.is_member %}
+                            <a href="{{ url_for('dice.room', code=l.code) }}"><button type="button" class="btn btn-primary btn-small">Открыть</button></a>
+                        {% elif l.status == "waiting" and l.players|length < l.max_players %}
+                            <form method="POST" action="{{ url_for('dice.join_room_route') }}" style="margin:0;">
+                                <input type="hidden" name="room_code" value="{{ l.code }}">
+                                <button type="submit" class="btn btn-primary btn-small">Войти</button>
+                            </form>
+                        {% else %}
+                            <span style="color:#aaa;">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     {% else %}
-        <p>У вас пока нет созданных комнат.</p>
+        <p class="lobby-empty">Активных лобби пока нет — создайте своё!</p>
     {% endif %}
 
-    <form method="POST" action="{{ url_for('dice.clear_rooms') }}">
-        <button type="submit" onclick="return confirm('Удалить все ваши комнаты?')">
-            Очистить мои комнаты
-        </button>
-    </form>
-
-    <hr>
-
-    <form method="POST" action="{{ url_for('dice.create_room') }}">
-        <h3>Создать комнату</h3>
-
-        <select name="max_players" required>
-            <option value="2">2 игрока</option>
-            <option value="3">3 игрока</option>
-            <option value="4">4 игрока</option>
-        </select>
-
-        <br><br>
-
-        <button type="submit">Создать комнату</button>
-    </form>
+    <div class="lobby-create-form">
+        <form method="POST" action="{{ url_for('dice.create_room') }}">
+            <h3 style="margin-top:0;">Создать лобби</h3>
+            <select name="max_players" required>
+                <option value="2">2 игрока</option>
+                <option value="3">3 игрока</option>
+                <option value="4">4 игрока</option>
+            </select>
+            <br><br>
+            <button type="submit" class="btn">Создать</button>
+        </form>
+    </div>
 
     <hr>
 
     <form method="POST" action="{{ url_for('dice.join_room_route') }}" autocomplete="off">
-        <h3>Войти в комнату</h3>
-
+        <h3>Войти по коду</h3>
         <input name="room_code" placeholder="Код комнаты" required>
-
         <br><br>
-
-        <button type="submit">Войти</button>
+        <button type="submit" class="btn btn-primary btn-small">Войти</button>
     </form>
 </div>
 

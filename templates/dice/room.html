@@ -26,11 +26,22 @@
     <button id="rollBtn" onclick="rollDiceOnline()">Бросить кубики</button>
 
     <div id="board" class="board"></div>
+
+    <form method="POST" action="{{ url_for('dice.leave_room', code=room_code) }}" style="margin-top:24px;">
+        {% if is_creator %}
+            <button type="submit" onclick="return confirm('Закрыть лобби? Все игроки будут выброшены из игры.')">
+                Закрыть лобби
+            </button>
+        {% else %}
+            <button type="submit">Покинуть комнату</button>
+        {% endif %}
+    </form>
 </div>
 
 <script>
     const ROOM_CODE = "{{ room_code }}";
     const CURRENT_LOGIN = {{ session['user']|tojson }};
+    const IS_CREATOR = {{ is_creator|tojson }};
 </script>
 <script src="{{ url_for('static', filename='dice/main.js') }}"></script>
 
