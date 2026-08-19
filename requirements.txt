@@ -1,7 +1,0 @@
-python-telegram-bot==20.5
-requests
-pandas
-numpy
-openpyxl
-scikit-learn
-sentence-transformers
