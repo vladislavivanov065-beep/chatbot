@@ -6,8 +6,7 @@ import threading
 import time
 import uuid
 
-from flask import Blueprint, render_template, request, session
-from flask_socketio import join_room
+from flask import Blueprint, redirect, render_template, request, session, url_for
 from PIL import Image
 import numpy as np
 
@@ -32,15 +31,37 @@ COLOR_MAX_DIST = 255.0 * (3 ** 0.5)  # max possible Euclidean distance between t
 SHAPE_WEIGHT = 0.6
 COLOR_WEIGHT = 0.4
 
-rooms = {}          # room_id -> room state
-waiting_queue = []  # sids waiting for an opponent
-sid_to_room = {}    # sid -> room_id
-names = {}          # sid -> display name
+rooms = {}              # room_id -> room state (players identified by username)
+username_to_sid = {}    # username -> current connected sid (namespace /draw)
+sid_to_username = {}    # sid -> username
 lock = threading.Lock()
 
 
 def new_room_id():
     return uuid.uuid4().hex[:8]
+
+
+def new_room(creator):
+    return {
+        "creator": creator,
+        "players": [creator],
+        "round": 0,
+        "reference": None,
+        "submissions": {},
+        "round_finished": True,
+        "finished_match": False,
+        "total_scores": {},
+        "rematch_votes": set(),
+        "next_round_votes": set(),
+        "end_time": None,
+    }
+
+
+def active_room_for(username):
+    return next(
+        (rid for rid, r in rooms.items() if username in r["players"] and not r["finished_match"]),
+        None,
+    )
 
 
 def pick_reference():
@@ -125,6 +146,28 @@ def score_drawing(data_url: str, reference_path: str) -> float:
     return round(min(final, 1.0) * 100, 1)
 
 
+def emit_to(username, event, payload):
+    sid = username_to_sid.get(username)
+    if sid:
+        socketio.emit(event, payload, to=sid, namespace=NAMESPACE)
+
+
+def opponent_of(room, username):
+    return next((p for p in room["players"] if p != username), None)
+
+
+def close_room(room_id, reason_for_remaining=None):
+    """Tear down a room. If `reason_for_remaining` is set, tell whoever else
+    is still in it (there is at most one other player, since draw is 1v1)."""
+    room = rooms.pop(room_id, None)
+    if not room:
+        return
+    if reason_for_remaining:
+        for username in room["players"]:
+            if username in username_to_sid:
+                emit_to(username, "lobby_closed", {"message": reason_for_remaining})
+
+
 def start_round(room_id):
     room = rooms.get(room_id)
     if not room or room["finished_match"]:
@@ -139,10 +182,10 @@ def start_round(room_id):
     end_time = time.time() + ROUND_DURATION
     room["end_time"] = end_time
 
-    sides = {room["players"][0]: "left", room["players"][1]: "right"}
-    for sid in room["players"]:
-        opponent_sid = next(s for s in room["players"] if s != sid)
-        socketio.emit(
+    for username in room["players"]:
+        opponent = opponent_of(room, username)
+        emit_to(
+            username,
             "start_round",
             {
                 "round": room["round"],
@@ -150,12 +193,8 @@ def start_round(room_id):
                 "reference_url": f"/static/draw/references/{ref}",
                 "duration": ROUND_DURATION,
                 "end_time": end_time,
-                "your_side": sides[sid],
-                "your_name": room["names"][sid],
-                "opponent_name": room["names"][opponent_sid],
+                "opponent_name": opponent,
             },
-            to=sid,
-            namespace=NAMESPACE,
         )
 
     socketio.start_background_task(force_finish_round, room_id, room["round"], end_time)
@@ -179,206 +218,239 @@ def finish_round(room_id):
     reference_path = os.path.join(REFERENCES_DIR, room["reference"])
 
     results = {}
-    for sid in room["players"]:
-        data_url = room["submissions"].get(sid, "")
+    for username in room["players"]:
+        data_url = room["submissions"].get(username, "")
         score = score_drawing(data_url, reference_path)
-        room["total_scores"][sid] += score
-        results[sid] = {"score": score, "image": data_url}
+        room["total_scores"][username] = room["total_scores"].get(username, 0.0) + score
+        results[username] = {"score": score, "image": data_url}
 
     p1, p2 = room["players"]
     if results[p1]["score"] > results[p2]["score"]:
-        winner_sid = p1
+        winner = p1
     elif results[p2]["score"] > results[p1]["score"]:
-        winner_sid = p2
+        winner = p2
     else:
-        winner_sid = None
+        winner = None
 
     match_over = room["round"] >= TOTAL_ROUNDS
     room["finished_match"] = match_over
 
-    for sid in room["players"]:
-        opponent_sid = next(s for s in room["players"] if s != sid)
+    for username in room["players"]:
+        opponent = opponent_of(room, username)
         payload = {
             "round": room["round"],
             "total_rounds": TOTAL_ROUNDS,
             "reference_url": f"/static/draw/references/{room['reference']}",
-            "your_score": results[sid]["score"],
-            "opponent_score": results[opponent_sid]["score"],
-            "your_image": results[sid]["image"],
-            "opponent_image": results[opponent_sid]["image"],
-            "round_winner": "you" if winner_sid == sid else ("opponent" if winner_sid else "draw"),
+            "your_score": results[username]["score"],
+            "opponent_score": results[opponent]["score"],
+            "your_image": results[username]["image"],
+            "opponent_image": results[opponent]["image"],
+            "round_winner": "you" if winner == username else ("opponent" if winner else "draw"),
             "total_scores": {
-                "you": round(room["total_scores"][sid], 1),
-                "opponent": round(room["total_scores"][opponent_sid], 1),
+                "you": round(room["total_scores"][username], 1),
+                "opponent": round(room["total_scores"][opponent], 1),
             },
             "match_over": match_over,
         }
         if match_over:
-            if room["total_scores"][sid] > room["total_scores"][opponent_sid]:
+            if room["total_scores"][username] > room["total_scores"][opponent]:
                 payload["match_winner"] = "you"
-            elif room["total_scores"][sid] < room["total_scores"][opponent_sid]:
+            elif room["total_scores"][username] < room["total_scores"][opponent]:
                 payload["match_winner"] = "opponent"
             else:
                 payload["match_winner"] = "draw"
-        socketio.emit("round_result", payload, to=sid, namespace=NAMESPACE)
+        emit_to(username, "round_result", payload)
 
 
 @draw_bp.route("/")
 @login_required
-def index():
-    return render_template("draw/index.html")
+def lobbies():
+    username = session["user"]
+    with lock:
+        open_lobbies = [
+            {"room_id": rid, "creator": r["creator"]}
+            for rid, r in rooms.items()
+            if len(r["players"]) == 1 and r["creator"] != username
+        ]
+        my_room = active_room_for(username)
+    return render_template("draw/lobbies.html", lobbies=open_lobbies, my_room=my_room)
 
 
-@socketio.on("join_game", namespace=NAMESPACE)
-def on_join_game(_data=None):
+@draw_bp.route("/create", methods=["POST"])
+@login_required
+def create():
+    username = session["user"]
+    with lock:
+        existing = active_room_for(username)
+        if existing:
+            return redirect(url_for("draw.room", room_id=existing))
+        room_id = new_room_id()
+        rooms[room_id] = new_room(username)
+    return redirect(url_for("draw.room", room_id=room_id))
+
+
+@draw_bp.route("/join/<room_id>", methods=["POST"])
+@login_required
+def join(room_id):
+    username = session["user"]
+    with lock:
+        room = rooms.get(room_id)
+        if room and username not in room["players"] and len(room["players"]) == 1:
+            room["players"].append(username)
+    return redirect(url_for("draw.room", room_id=room_id))
+
+
+@draw_bp.route("/room/<room_id>")
+@login_required
+def room(room_id):
+    with lock:
+        r = rooms.get(room_id)
+        if not r or session["user"] not in r["players"]:
+            return redirect(url_for("draw.lobbies"))
+    return render_template("draw/room.html", room_id=room_id)
+
+
+@socketio.on("enter_room", namespace=NAMESPACE)
+def on_enter_room(data):
+    username = session.get("user")
+    room_id = (data or {}).get("room_id")
+    if not username or not room_id:
+        return
     sid = request.sid
-    name = session.get("user") or f"Игрок-{sid[:4]}"
-    names[sid] = name
 
     with lock:
-        if sid in waiting_queue or sid in sid_to_room:
+        room = rooms.get(room_id)
+        if not room or username not in room["players"]:
             return
-        if waiting_queue:
-            opponent_sid = waiting_queue.pop(0)
-            room_id = new_room_id()
-            rooms[room_id] = {
-                "players": [opponent_sid, sid],
-                "names": {opponent_sid: names.get(opponent_sid, "Игрок 1"), sid: name},
-                "total_scores": {opponent_sid: 0.0, sid: 0.0},
-                "round": 0,
-                "finished_match": False,
-                "round_finished": True,
-                "rematch_votes": set(),
-                "next_round_votes": set(),
-            }
-            sid_to_room[opponent_sid] = room_id
-            sid_to_room[sid] = room_id
-            join_room(room_id, sid=opponent_sid, namespace=NAMESPACE)
-            join_room(room_id, sid=sid, namespace=NAMESPACE)
-            start_round(room_id)
-        else:
-            waiting_queue.append(sid)
+        username_to_sid[username] = sid
+        sid_to_username[sid] = username
+
+        if len(room["players"]) < 2:
             socketio.emit("waiting", {}, to=sid, namespace=NAMESPACE)
+            return
+
+        if room["round"] == 0 and all(p in username_to_sid for p in room["players"]):
+            start_round(room_id)
 
 
 @socketio.on("draw_batch", namespace=NAMESPACE)
 def on_draw_batch(data):
-    sid = request.sid
-    room_id = sid_to_room.get(sid)
-    if not room_id:
+    username = sid_to_username.get(request.sid)
+    if not username:
         return
-    room = rooms.get(room_id)
+    room_id = active_room_for(username)
+    room = rooms.get(room_id) if room_id else None
     if not room or room["round_finished"]:
         return
     points = (data or {}).get("points")
     if not points:
         return
-    opponent_sid = next((s for s in room["players"] if s != sid), None)
-    if opponent_sid:
-        socketio.emit("opponent_draw_batch", {"points": points}, to=opponent_sid, namespace=NAMESPACE)
+    opponent = opponent_of(room, username)
+    if opponent:
+        emit_to(opponent, "opponent_draw_batch", {"points": points})
 
 
 @socketio.on("clear_canvas", namespace=NAMESPACE)
 def on_clear_canvas(_data=None):
-    sid = request.sid
-    room_id = sid_to_room.get(sid)
-    if not room_id:
+    username = sid_to_username.get(request.sid)
+    if not username:
         return
-    room = rooms.get(room_id)
+    room_id = active_room_for(username)
+    room = rooms.get(room_id) if room_id else None
     if not room or room["round_finished"]:
         return
-    opponent_sid = next((s for s in room["players"] if s != sid), None)
-    if opponent_sid:
-        socketio.emit("opponent_clear_canvas", {}, to=opponent_sid, namespace=NAMESPACE)
+    opponent = opponent_of(room, username)
+    if opponent:
+        emit_to(opponent, "opponent_clear_canvas", {})
 
 
 @socketio.on("redraw_canvas", namespace=NAMESPACE)
 def on_redraw_canvas(data):
-    sid = request.sid
-    room_id = sid_to_room.get(sid)
-    if not room_id:
+    username = sid_to_username.get(request.sid)
+    if not username:
         return
-    room = rooms.get(room_id)
+    room_id = active_room_for(username)
+    room = rooms.get(room_id) if room_id else None
     if not room or room["round_finished"]:
         return
     points = (data or {}).get("points", [])
-    opponent_sid = next((s for s in room["players"] if s != sid), None)
-    if opponent_sid:
-        socketio.emit("opponent_redraw_canvas", {"points": points}, to=opponent_sid, namespace=NAMESPACE)
+    opponent = opponent_of(room, username)
+    if opponent:
+        emit_to(opponent, "opponent_redraw_canvas", {"points": points})
 
 
 @socketio.on("submit", namespace=NAMESPACE)
 def on_submit(data):
-    sid = request.sid
-    room_id = sid_to_room.get(sid)
-    if not room_id:
+    username = sid_to_username.get(request.sid)
+    if not username:
         return
     with lock:
-        room = rooms.get(room_id)
+        room_id = active_room_for(username)
+        room = rooms.get(room_id) if room_id else None
         if not room or room["round_finished"]:
             return
-        room["submissions"][sid] = (data or {}).get("image", "")
-        opponent_sid = next((s for s in room["players"] if s != sid), None)
-        if opponent_sid:
-            socketio.emit("opponent_submitted", {}, to=opponent_sid, namespace=NAMESPACE)
+        room["submissions"][username] = (data or {}).get("image", "")
+        opponent = opponent_of(room, username)
+        if opponent:
+            emit_to(opponent, "opponent_submitted", {})
         if len(room["submissions"]) == len(room["players"]):
             finish_round(room_id)
 
 
 @socketio.on("ready_next_round", namespace=NAMESPACE)
 def on_ready_next_round(_data=None):
-    sid = request.sid
-    room_id = sid_to_room.get(sid)
-    if not room_id:
+    username = sid_to_username.get(request.sid)
+    if not username:
         return
     with lock:
-        room = rooms.get(room_id)
+        room_id = active_room_for(username)
+        room = rooms.get(room_id) if room_id else None
         if not room or room["finished_match"] or not room["round_finished"]:
             return
-        room["next_round_votes"].add(sid)
+        room["next_round_votes"].add(username)
         if len(room["next_round_votes"]) == len(room["players"]):
             start_round(room_id)
         else:
-            opponent_sid = next((s for s in room["players"] if s != sid), None)
-            if opponent_sid:
-                socketio.emit("opponent_ready_next_round", {}, to=opponent_sid, namespace=NAMESPACE)
+            opponent = opponent_of(room, username)
+            if opponent:
+                emit_to(opponent, "opponent_ready_next_round", {})
 
 
 @socketio.on("play_again", namespace=NAMESPACE)
 def on_play_again(_data=None):
-    sid = request.sid
-    room_id = sid_to_room.get(sid)
-    if not room_id:
+    username = sid_to_username.get(request.sid)
+    if not username:
         return
     with lock:
-        room = rooms.get(room_id)
+        room_id = active_room_for(username)
+        room = rooms.get(room_id) if room_id else None
         if not room or not room["finished_match"]:
             return
-        room["rematch_votes"].add(sid)
+        room["rematch_votes"].add(username)
         if len(room["rematch_votes"]) == len(room["players"]):
             room["round"] = 0
             room["finished_match"] = False
-            room["total_scores"] = {s: 0.0 for s in room["players"]}
+            room["total_scores"] = {p: 0.0 for p in room["players"]}
             room["rematch_votes"] = set()
             start_round(room_id)
         else:
-            opponent_sid = next((s for s in room["players"] if s != sid), None)
-            if opponent_sid:
-                socketio.emit("opponent_wants_rematch", {}, to=opponent_sid, namespace=NAMESPACE)
+            opponent = opponent_of(room, username)
+            if opponent:
+                emit_to(opponent, "opponent_wants_rematch", {})
 
 
 @socketio.on("disconnect", namespace=NAMESPACE)
 def on_disconnect():
     sid = request.sid
+    username = sid_to_username.pop(sid, None)
+    if not username:
+        return
+    if username_to_sid.get(username) == sid:
+        del username_to_sid[username]
+
     with lock:
-        if sid in waiting_queue:
-            waiting_queue.remove(sid)
-        room_id = sid_to_room.pop(sid, None)
-        names.pop(sid, None)
-        if room_id and room_id in rooms:
-            room = rooms.pop(room_id, None)
-            if room:
-                opponent_sid = next((s for s in room["players"] if s != sid), None)
-                if opponent_sid:
-                    sid_to_room.pop(opponent_sid, None)
-                    socketio.emit("opponent_left", {}, to=opponent_sid, namespace=NAMESPACE)
+        room_id = active_room_for(username)
+        if not room_id:
+            return
+        # draw is strictly 1v1: either player leaving ends the room for both.
+        close_room(room_id, reason_for_remaining="Соперник покинул игру. Лобби закрыто.")

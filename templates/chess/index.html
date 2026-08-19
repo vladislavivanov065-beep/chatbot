@@ -14,7 +14,7 @@
         <span class="brand-logo">♞</span>
         <span class="brand-name">Шахматы <b>2-8</b></span>
       </div>
-      <a href="{{ url_for('lobby') }}" style="margin-left:auto;color:#cfd8e3;font-weight:600;text-decoration:none;">← В лобби</a>
+      <a href="{{ url_for('chess.index') }}" style="margin-left:auto;color:#cfd8e3;font-weight:600;text-decoration:none;">← К лобби шахмат</a>
     </header>
 
     <main id="layout">
@@ -55,6 +55,7 @@
   <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
   <script>
     window.PLAYER_TOKEN = "{{ token }}";
+    window.LOBBY_ID = "{{ lobby_id }}";
   </script>
   <script src="{{ url_for('static', filename='chess/main.js') }}"></script>
 </body>

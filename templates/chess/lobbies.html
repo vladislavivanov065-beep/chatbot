@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Шахматы — лобби</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card lobby-card">
+    <div class="lobby-topbar">
+      <h1 style="margin:0;">♞ Шахматы 2-8</h1>
+      <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+    </div>
+    <p class="subtitle">Растущая доска на 2-8 игроков и способности за очки</p>
+
+    {% if lobbies %}
+      <table class="lobby-table">
+        <thead>
+          <tr>
+            <th>Создатель</th>
+            <th>Игроков</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lobbies %}
+          <tr>
+            <td>{{ l.creator }}</td>
+            <td>{{ l.players }} / 8</td>
+            <td><span class="lobby-status {{ l.status }}">
+              {{ {"waiting": "ожидание", "playing": "идёт партия", "finished": "завершена"}[l.status] }}
+            </span></td>
+            <td>
+              <a href="{{ url_for('chess.lobby', lobby_id=l.lobby_id) }}">
+                <button type="button" class="btn btn-primary btn-small">Войти</button>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="lobby-empty">Активных партий пока нет — создайте свою!</p>
+    {% endif %}
+
+    <div class="lobby-create-form">
+      <form method="POST" action="{{ url_for('chess.create') }}">
+        <button type="submit" class="btn">Создать лобби</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

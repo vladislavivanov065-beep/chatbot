@@ -40,12 +40,30 @@ def check_win(board, player):
 @login_required
 def index():
     with get_db() as conn:
-        created_rooms = conn.execute(
-            "SELECT code, max_players, status FROM dice_rooms WHERE creator = ? ORDER BY id DESC",
-            (session["user"],),
+        rooms = conn.execute(
+            "SELECT code, creator, max_players, status FROM dice_rooms WHERE status != 'finished' ORDER BY id DESC"
         ).fetchall()
 
-    return render_template("dice/menu.html", created_rooms=created_rooms, error=request.args.get("error"))
+        lobbies = []
+        for r in rooms:
+            players = conn.execute(
+                "SELECT login FROM dice_room_players WHERE room_code = ? ORDER BY player_index",
+                (r["code"],),
+            ).fetchall()
+            player_logins = [p["login"] for p in players]
+            lobbies.append(
+                {
+                    "code": r["code"],
+                    "creator": r["creator"],
+                    "max_players": r["max_players"],
+                    "status": r["status"],
+                    "players": player_logins,
+                    "is_member": session["user"] in player_logins,
+                    "is_creator": r["creator"] == session["user"],
+                }
+            )
+
+    return render_template("dice/menu.html", lobbies=lobbies, error=request.args.get("error"))
 
 
 @dice_bp.route("/create-room", methods=["POST"])
@@ -119,19 +137,35 @@ def join_room_route():
 @dice_bp.route("/room/<code>")
 @login_required
 def room(code):
-    return render_template("dice/room.html", room_code=code)
-
-
-@dice_bp.route("/clear-rooms", methods=["POST"])
-@login_required
-def clear_rooms():
     with get_db() as conn:
-        rooms = conn.execute(
-            "SELECT code FROM dice_rooms WHERE creator = ?", (session["user"],)
-        ).fetchall()
-        for r in rooms:
-            conn.execute("DELETE FROM dice_room_players WHERE room_code = ?", (r["code"],))
-        conn.execute("DELETE FROM dice_rooms WHERE creator = ?", (session["user"],))
+        r = conn.execute("SELECT creator FROM dice_rooms WHERE code = ?", (code,)).fetchone()
+
+    if not r:
+        return redirect(url_for("dice.index", error="Лобби закрыто или не найдено"))
+
+    return render_template("dice/room.html", room_code=code, is_creator=(r["creator"] == session["user"]))
+
+
+@dice_bp.route("/room/<code>/leave", methods=["POST"])
+@login_required
+def leave_room(code):
+    with get_db() as conn:
+        r = conn.execute("SELECT creator, status FROM dice_rooms WHERE code = ?", (code,)).fetchone()
+
+        if not r:
+            return redirect(url_for("dice.index"))
+
+        if r["creator"] == session["user"]:
+            # the creator leaving closes the lobby for everyone in it
+            conn.execute("DELETE FROM dice_room_players WHERE room_code = ?", (code,))
+            conn.execute("DELETE FROM dice_rooms WHERE code = ?", (code,))
+        elif r["status"] == "waiting":
+            conn.execute(
+                "DELETE FROM dice_room_players WHERE room_code = ? AND login = ?",
+                (code, session["user"]),
+            )
+        # leaving mid-game as a non-creator isn't supported: the seat stays,
+        # matching how the board already tolerates a player going idle.
 
     return redirect(url_for("dice.index"))
 

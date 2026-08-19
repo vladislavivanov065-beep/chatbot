@@ -3,6 +3,7 @@
 
   const screens = {
     waiting: document.getElementById("screen-waiting"),
+    closed: document.getElementById("screen-closed"),
     game: document.getElementById("screen-game"),
     result: document.getElementById("screen-result"),
   };
@@ -12,19 +13,18 @@
     screens[key].classList.add("active");
   }
 
-  // --- matchmaking ---
+  // --- room entry ---
 
-  function joinGame() {
-    socket.emit("join_game");
-    showScreen("waiting");
-  }
+  socket.on("connect", () => {
+    socket.emit("enter_room", { room_id: window.ROOM_ID });
+  });
 
-  socket.on("connect", joinGame);
   socket.on("waiting", () => showScreen("waiting"));
 
-  socket.on("opponent_left", () => {
-    alert("Соперник отключился. Ищем нового…");
-    joinGame();
+  socket.on("lobby_closed", (data) => {
+    document.getElementById("closed-message").textContent =
+      (data && data.message) || "Лобби закрыто.";
+    showScreen("closed");
   });
 
   // --- drawing canvas ---

@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='draw/css/style.css') }}">
 </head>
 <body>
-  <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+  <a href="{{ url_for('draw.lobbies') }}" class="back-link">← К лобби</a>
 
   <div class="app">
 
@@ -15,6 +15,13 @@
       <div class="card">
         <div class="spinner"></div>
         <p>Ищем соперника…</p>
+      </div>
+    </section>
+
+    <section id="screen-closed" class="screen">
+      <div class="card">
+        <p id="closed-message">Лобби закрыто.</p>
+        <a href="{{ url_for('draw.lobbies') }}" class="btn btn-primary" style="display:inline-block;text-decoration:none;">К списку лобби</a>
       </div>
     </section>
 
@@ -89,11 +96,15 @@
         <button id="next-btn" class="btn btn-primary">Дальше</button>
         <button id="rematch-btn" class="btn btn-ghost hidden">Играть ещё раз</button>
         <p id="rematch-status" class="rematch-status"></p>
+        <a href="{{ url_for('draw.lobbies') }}" class="btn btn-ghost" style="display:inline-block;text-decoration:none;margin-top:10px;">Другие лобби</a>
       </div>
     </section>
 
   </div>
 
+  <script>
+    window.ROOM_ID = {{ room_id|tojson }};
+  </script>
   <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
   <script src="{{ url_for('static', filename='draw/js/main.js') }}"></script>
 </body>
