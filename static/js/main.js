@@ -48,7 +48,7 @@
   const timerEl = document.getElementById("timer");
 
   let drawing = false;
-  let currentColor = "#111111";
+  let currentColor = "#141414";
   let currentSize = 6;
   let eraserOn = false;
   let submitted = false;

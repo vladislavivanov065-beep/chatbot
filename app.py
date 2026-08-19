@@ -11,7 +11,7 @@ eventlet.monkey_patch()
 
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, join_room
-from PIL import Image, ImageFilter
+from PIL import Image
 import numpy as np
 
 app = Flask(__name__)
@@ -24,11 +24,14 @@ REFERENCE_IMAGES = sorted(
     f for f in os.listdir(REFERENCES_DIR) if f.lower().endswith(".png")
 ) if os.path.isdir(REFERENCES_DIR) else []
 
-ROUND_DURATION = 75      # seconds per round
+ROUND_DURATION = 90      # seconds per round
 TOTAL_ROUNDS = 3
 CANVAS_SIZE = 300
-INK_THRESHOLD = 200      # grayscale value below which a pixel counts as "drawn"
-TOLERANCE_DILATION = 4   # px tolerance when matching against the reference outline
+WHITE_DIST_THRESHOLD = 60            # RGB distance from white below which a pixel is "drawn"
+PIXEL_TOLERANCE = 5                  # px of positional slack allowed when matching the outline
+COLOR_MAX_DIST = 255.0 * (3 ** 0.5)  # max possible Euclidean distance between two RGB colors
+SHAPE_WEIGHT = 0.6
+COLOR_WEIGHT = 0.4
 
 rooms = {}          # room_id -> room state
 waiting_queue = []  # sids waiting for an opponent
@@ -45,12 +48,40 @@ def pick_reference():
     return random.choice(REFERENCE_IMAGES) if REFERENCE_IMAGES else None
 
 
-def ink_mask(arr: np.ndarray) -> np.ndarray:
-    return arr < INK_THRESHOLD
+def non_white_mask(rgb: np.ndarray) -> np.ndarray:
+    dist = np.sqrt(((rgb.astype(np.float64) - 255.0) ** 2).sum(axis=-1))
+    return dist > WHITE_DIST_THRESHOLD
+
+
+def color_dilate(rgb: np.ndarray, mask: np.ndarray, iterations: int):
+    """Grow `mask` outward by `iterations` pixels, carrying the nearest ink color with it.
+
+    Returns (filled_color, filled_mask): filled_mask is the dilated mask (a
+    positional-tolerance band around the original ink), and filled_color
+    gives, for every pixel in that band, the color of the ink it grew from.
+    """
+    filled_color = rgb.astype(np.float64).copy()
+    filled_mask = mask.copy()
+    for _ in range(iterations):
+        new_mask = filled_mask.copy()
+        new_color = filled_color.copy()
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            shifted_mask = np.roll(filled_mask, shift=(dy, dx), axis=(0, 1))
+            shifted_color = np.roll(filled_color, shift=(dy, dx), axis=(0, 1))
+            grow = shifted_mask & ~new_mask
+            new_color[grow] = shifted_color[grow]
+            new_mask = new_mask | shifted_mask
+        filled_mask, filled_color = new_mask, new_color
+    return filled_color, filled_mask
 
 
 def score_drawing(data_url: str, reference_path: str) -> float:
-    """Compare a base64 canvas drawing against the reference image, 0-100."""
+    """Compare a base64 canvas drawing against the reference image, 0-100.
+
+    Combines a shape score (does the drawn outline line up with the
+    reference, within a small pixel tolerance) with a color score (do
+    matched pixels use roughly the same color as the reference there).
+    """
     if not data_url or "," not in data_url:
         return 0.0
     try:
@@ -61,26 +92,38 @@ def score_drawing(data_url: str, reference_path: str) -> float:
         return 0.0
 
     background = Image.new("RGBA", drawn.size, (255, 255, 255, 255))
-    drawn = Image.alpha_composite(background, drawn).convert("L").resize(
+    drawn_rgb = Image.alpha_composite(background, drawn).convert("RGB").resize(
         (CANVAS_SIZE, CANVAS_SIZE)
     )
+    reference_rgb = Image.open(reference_path).convert("RGB").resize((CANVAS_SIZE, CANVAS_SIZE))
 
-    reference = Image.open(reference_path).convert("L").resize((CANVAS_SIZE, CANVAS_SIZE))
-    # MinFilter spreads dark (ink) pixels outward, giving a tolerance band around the outline.
-    reference_tolerant = reference.filter(ImageFilter.MinFilter(TOLERANCE_DILATION * 2 + 1))
+    player_arr = np.array(drawn_rgb)
+    ref_arr = np.array(reference_rgb)
 
-    player_mask = ink_mask(np.array(drawn))
-    ref_mask = ink_mask(np.array(reference))
-    ref_tolerant_mask = ink_mask(np.array(reference_tolerant))
+    player_mask = non_white_mask(player_arr)
+    ref_mask = non_white_mask(ref_arr)
 
     player_ink = int(player_mask.sum())
     ref_ink = int(ref_mask.sum())
     if player_ink == 0 or ref_ink == 0:
         return 0.0
 
-    true_positive = int(np.logical_and(player_mask, ref_tolerant_mask).sum())
-    dice = (2 * true_positive) / (player_ink + ref_ink)
-    return round(min(dice, 1.0) * 100, 1)
+    ref_filled_color, ref_tolerant_mask = color_dilate(ref_arr, ref_mask, PIXEL_TOLERANCE)
+
+    hits = player_mask & ref_tolerant_mask
+    hit_count = int(hits.sum())
+
+    shape_score = (2 * hit_count) / (player_ink + ref_ink)
+
+    if hit_count:
+        diffs = player_arr.astype(np.float64)[hits] - ref_filled_color[hits]
+        dists = np.linalg.norm(diffs, axis=1)
+        color_score = float(np.mean(np.clip(1 - dists / COLOR_MAX_DIST, 0.0, 1.0)))
+    else:
+        color_score = 0.0
+
+    final = SHAPE_WEIGHT * shape_score + COLOR_WEIGHT * color_score
+    return round(min(final, 1.0) * 100, 1)
 
 
 def start_round(room_id):
