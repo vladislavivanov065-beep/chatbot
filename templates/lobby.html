@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Выбор игры — Игровая площадка</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card lobby-card">
+    <div class="lobby-header">
+      <h1>🎮 Выберите игру</h1>
+      <a class="logout" href="{{ url_for('auth.logout') }}">Выйти ({{ user }})</a>
+    </div>
+    <p class="subtitle">Играйте с друзьями онлайн — просто откройте нужную игру</p>
+
+    <div class="game-grid">
+      <a class="game-card" href="{{ url_for('draw.index') }}">
+        <span class="emoji">🎨</span>
+        <div class="title">Дуэль художников</div>
+        <div class="desc">Двое рисуют один образец наперегонки — кто точнее, тот и победил</div>
+      </a>
+
+      <a class="game-card" href="{{ url_for('dice.index') }}">
+        <span class="emoji">🎲</span>
+        <div class="title">Кости на доске</div>
+        <div class="desc">2-4 игрока, комнаты по коду, собери 4 фишки в ряд</div>
+      </a>
+
+      <a class="game-card" href="{{ url_for('chess.index') }}">
+        <span class="emoji">♞</span>
+        <div class="title">Шахматы 2-8</div>
+        <div class="desc">Общая партия на всех, растущая доска и способности за очки</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

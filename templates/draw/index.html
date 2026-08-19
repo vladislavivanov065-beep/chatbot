@@ -4,21 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Дуэль художников</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='draw/css/style.css') }}">
 </head>
 <body>
+  <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+
   <div class="app">
 
-    <section id="screen-name" class="screen active">
-      <div class="card">
-        <h1>🎨 Дуэль художников</h1>
-        <p class="subtitle">Двое игроков. Один образец. Кто нарисует точнее — побеждает.</p>
-        <input id="name-input" type="text" maxlength="20" placeholder="Введите имя" autocomplete="off">
-        <button id="play-btn" class="btn btn-primary">Играть</button>
-      </div>
-    </section>
-
-    <section id="screen-waiting" class="screen">
+    <section id="screen-waiting" class="screen active">
       <div class="card">
         <div class="spinner"></div>
         <p>Ищем соперника…</p>
@@ -47,20 +40,26 @@
 
         <div class="canvas-wrap" id="right-wrap">
           <canvas id="right-canvas" width="300" height="300"></canvas>
-          <div class="opponent-overlay" id="opponent-overlay">Соперник рисует…</div>
+          <div class="opponent-badge hidden" id="opponent-badge"></div>
         </div>
       </div>
 
       <div class="toolbar">
         <div class="colors">
-          <button class="color-swatch active" data-color="#111111" style="background:#111111"></button>
+          <button class="color-swatch active" data-color="#141414" style="background:#141414"></button>
           <button class="color-swatch" data-color="#e63946" style="background:#e63946"></button>
-          <button class="color-swatch" data-color="#2a9d8f" style="background:#2a9d8f"></button>
+          <button class="color-swatch" data-color="#f48c06" style="background:#f48c06"></button>
+          <button class="color-swatch" data-color="#ffd166" style="background:#ffd166"></button>
+          <button class="color-swatch" data-color="#40916c" style="background:#40916c"></button>
           <button class="color-swatch" data-color="#457b9d" style="background:#457b9d"></button>
-          <button class="color-swatch" data-color="#f4a261" style="background:#f4a261"></button>
+          <button class="color-swatch" data-color="#a8dadc" style="background:#a8dadc"></button>
+          <button class="color-swatch" data-color="#ff8fab" style="background:#ff8fab"></button>
+          <button class="color-swatch" data-color="#795548" style="background:#795548"></button>
         </div>
         <input id="brush-size" type="range" min="2" max="20" value="6">
         <button id="eraser-btn" class="btn btn-ghost">Ластик</button>
+        <button id="undo-btn" class="btn btn-ghost btn-icon" title="Отменить последнее изменение" disabled>↶</button>
+        <button id="redo-btn" class="btn btn-ghost btn-icon" title="Вернуть отменённое" disabled>↷</button>
         <button id="clear-btn" class="btn btn-ghost">Очистить</button>
         <button id="submit-btn" class="btn btn-primary">Готово</button>
       </div>
@@ -95,7 +94,7 @@
 
   </div>
 
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='draw/js/main.js') }}"></script>
 </body>
 </html>

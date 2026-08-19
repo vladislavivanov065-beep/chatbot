@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Шахматы на 2-8 игроков</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="{{ url_for('static', filename='chess/style.css') }}">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand">
+        <span class="brand-logo">♞</span>
+        <span class="brand-name">Шахматы <b>2-8</b></span>
+      </div>
+      <a href="{{ url_for('lobby') }}" style="margin-left:auto;color:#cfd8e3;font-weight:600;text-decoration:none;">← В лобби</a>
+    </header>
+
+    <main id="layout">
+      <section id="board-col">
+        <div id="board-wrap">
+          <div id="board"></div>
+        </div>
+      </section>
+
+      <aside id="side-col">
+        <div class="card" id="status-card">
+          <div id="status">Загрузка…</div>
+          <div id="score" hidden></div>
+        </div>
+
+        <div class="card" id="join-panel">
+          <button id="join-btn">Войти в игру</button>
+          <p id="join-hint">Отправьте эту ссылку друзьям — до 8 человек могут присоединиться, в том числе после начала партии.</p>
+          <button id="restart-btn" hidden>Начать партию заново</button>
+        </div>
+
+        <div class="card" id="abilities-card">
+          <h3>Способности</h3>
+          <div id="ability-hint" hidden></div>
+          <div id="abilities-panel"></div>
+        </div>
+
+        <div class="card" id="seats-card">
+          <h3>Игроки</h3>
+          <div id="seats-panel"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="piece-sprite-holder" style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true"></div>
+
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+  <script>
+    window.PLAYER_TOKEN = "{{ token }}";
+  </script>
+  <script src="{{ url_for('static', filename='chess/main.js') }}"></script>
+</body>
+</html>

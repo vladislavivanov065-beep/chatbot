@@ -19,6 +19,20 @@ body {
   max-width: 900px;
 }
 
+.back-link {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  text-decoration: none;
+  z-index: 10;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
 .screen {
   display: none;
 }
@@ -86,6 +100,18 @@ h1 {
 .btn-ghost {
   background: #eef0f5;
   color: #333;
+}
+
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-icon {
+  width: 40px;
+  padding: 12px 0;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .spinner {
@@ -163,20 +189,20 @@ canvas {
   cursor: crosshair;
 }
 
-.opponent-overlay {
+.opponent-badge {
   position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 12px;
-  font-weight: 600;
-  color: #555;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #333;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.opponent-overlay.hidden {
+.opponent-badge.hidden {
   display: none;
 }
 

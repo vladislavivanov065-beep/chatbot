@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Кости на доске — комната {{ room_code }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='dice/style.css') }}">
+</head>
+<body>
+
+<a href="{{ url_for('dice.index') }}" class="back-link">← К списку комнат</a>
+
+<h1>🎲 Кости на доске</h1>
+<p>Вы вошли как: <b>{{ session['user'] }}</b></p>
+
+<div class="game-wrapper">
+    <h2>Комната</h2>
+
+    <div id="roomInfo"></div>
+
+    <div class="dice">
+        <div id="die1" class="die">?</div>
+        <div id="die2" class="die">?</div>
+    </div>
+
+    <button id="rollBtn" onclick="rollDiceOnline()">Бросить кубики</button>
+
+    <div id="board" class="board"></div>
+</div>
+
+<script>
+    const ROOM_CODE = "{{ room_code }}";
+    const CURRENT_LOGIN = {{ session['user']|tojson }};
+</script>
+<script src="{{ url_for('static', filename='dice/main.js') }}"></script>
+
+</body>
+</html>
