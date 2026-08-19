@@ -88,6 +88,18 @@ h1 {
   color: #333;
 }
 
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-icon {
+  width: 40px;
+  padding: 12px 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
 .spinner {
   width: 44px;
   height: 44px;

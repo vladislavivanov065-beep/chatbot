@@ -294,6 +294,21 @@ def on_clear_canvas(_data):
         socketio.emit("opponent_clear_canvas", {}, to=opponent_sid)
 
 
+@socketio.on("redraw_canvas")
+def on_redraw_canvas(data):
+    sid = request.sid
+    room_id = sid_to_room.get(sid)
+    if not room_id:
+        return
+    room = rooms.get(room_id)
+    if not room or room["round_finished"]:
+        return
+    points = (data or {}).get("points", [])
+    opponent_sid = next((s for s in room["players"] if s != sid), None)
+    if opponent_sid:
+        socketio.emit("opponent_redraw_canvas", {"points": points}, to=opponent_sid)
+
+
 @socketio.on("submit")
 def on_submit(data):
     sid = request.sid

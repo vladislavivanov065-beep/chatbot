@@ -57,6 +57,18 @@
   let timerInterval = null;
   let roundEndTime = 0;
 
+  let strokes = [];       // completed strokes: array of point-arrays
+  let currentStroke = []; // points of the stroke being drawn right now
+  let redoStack = [];     // strokes undone, available to redo
+
+  const undoBtn = document.getElementById("undo-btn");
+  const redoBtn = document.getElementById("redo-btn");
+
+  function updateHistoryButtons() {
+    undoBtn.disabled = submitted || strokes.length === 0;
+    redoBtn.disabled = submitted || redoStack.length === 0;
+  }
+
   function resetCanvas() {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -107,6 +119,16 @@
     targetCtx.stroke();
   }
 
+  function redrawCanvas() {
+    resetCanvas();
+    strokes.forEach((stroke) => stroke.forEach((point) => applyStrokePoint(ctx, point)));
+  }
+
+  function syncFullCanvas() {
+    const allPoints = [].concat(...strokes);
+    socket.emit("redraw_canvas", { points: allPoints });
+  }
+
   function pointerPos(e) {
     const rect = canvas.getBoundingClientRect();
     const point = e.touches ? e.touches[0] : e;
@@ -123,6 +145,7 @@
     const point = { type: "start", x, y };
     applyStrokePoint(ctx, point);
     queueStrokePoint(point);
+    currentStroke = [point];
     e.preventDefault();
   }
 
@@ -132,11 +155,19 @@
     const point = { type: "move", x, y, color: currentColor, size: currentSize, eraser: eraserOn };
     applyStrokePoint(ctx, point);
     queueStrokePoint(point);
+    currentStroke.push(point);
     e.preventDefault();
   }
 
   function endDraw() {
+    if (!drawing) return;
     drawing = false;
+    if (currentStroke.length > 1) {
+      strokes.push(currentStroke);
+      redoStack = [];
+      updateHistoryButtons();
+    }
+    currentStroke = [];
   }
 
   canvas.addEventListener("mousedown", startDraw);
@@ -167,8 +198,27 @@
 
   document.getElementById("clear-btn").addEventListener("click", () => {
     if (submitted) return;
+    strokes = [];
+    redoStack = [];
+    updateHistoryButtons();
     resetCanvas();
     socket.emit("clear_canvas");
+  });
+
+  undoBtn.addEventListener("click", () => {
+    if (submitted || strokes.length === 0) return;
+    redoStack.push(strokes.pop());
+    redrawCanvas();
+    updateHistoryButtons();
+    syncFullCanvas();
+  });
+
+  redoBtn.addEventListener("click", () => {
+    if (submitted || redoStack.length === 0) return;
+    strokes.push(redoStack.pop());
+    redrawCanvas();
+    updateHistoryButtons();
+    syncFullCanvas();
   });
 
   socket.on("opponent_draw_batch", (data) => {
@@ -177,12 +227,18 @@
 
   socket.on("opponent_clear_canvas", () => resetOpponentCanvas());
 
+  socket.on("opponent_redraw_canvas", (data) => {
+    resetOpponentCanvas();
+    (data.points || []).forEach((point) => applyStrokePoint(opponentCtx, point));
+  });
+
   document.getElementById("submit-btn").addEventListener("click", () => submitDrawing());
 
   function submitDrawing() {
     if (submitted) return;
     submitted = true;
     document.getElementById("submit-btn").disabled = true;
+    updateHistoryButtons();
     socket.emit("submit", { image: canvas.toDataURL("image/png") });
   }
 
@@ -194,6 +250,10 @@
     resetCanvas();
     resetOpponentCanvas();
     pendingPoints = [];
+    strokes = [];
+    currentStroke = [];
+    redoStack = [];
+    updateHistoryButtons();
     referenceImg.src = data.reference_url;
     roundLabel.textContent = `Раунд ${data.round} / ${data.total_rounds}`;
     leftTag.textContent = "Вы";
