@@ -40,7 +40,9 @@
 
   const canvas = document.getElementById("left-canvas");
   const ctx = canvas.getContext("2d");
-  const opponentOverlay = document.getElementById("opponent-overlay");
+  const opponentCanvas = document.getElementById("right-canvas");
+  const opponentCtx = opponentCanvas.getContext("2d");
+  const opponentBadge = document.getElementById("opponent-badge");
   const leftTag = document.getElementById("left-tag");
   const rightTag = document.getElementById("right-tag");
   const referenceImg = document.getElementById("reference-img");
@@ -61,6 +63,50 @@
   }
   resetCanvas();
 
+  function resetOpponentCanvas() {
+    opponentCtx.fillStyle = "#ffffff";
+    opponentCtx.fillRect(0, 0, opponentCanvas.width, opponentCanvas.height);
+  }
+  resetOpponentCanvas();
+
+  // --- live stroke sync: batch points and flush once per animation frame ---
+
+  let pendingPoints = [];
+  let flushScheduled = false;
+
+  function queueStrokePoint(point) {
+    pendingPoints.push(point);
+    if (!flushScheduled) {
+      flushScheduled = true;
+      requestAnimationFrame(flushStrokePoints);
+    }
+  }
+
+  function flushStrokePoints() {
+    flushScheduled = false;
+    if (pendingPoints.length === 0) return;
+    socket.emit("draw_batch", { points: pendingPoints });
+    pendingPoints = [];
+  }
+
+  function strokeStyleFor(point) {
+    return point.eraser ? "#ffffff" : point.color;
+  }
+
+  function applyStrokePoint(targetCtx, point) {
+    if (point.type === "start") {
+      targetCtx.beginPath();
+      targetCtx.moveTo(point.x, point.y);
+      return;
+    }
+    targetCtx.lineCap = "round";
+    targetCtx.lineJoin = "round";
+    targetCtx.lineWidth = point.size;
+    targetCtx.strokeStyle = strokeStyleFor(point);
+    targetCtx.lineTo(point.x, point.y);
+    targetCtx.stroke();
+  }
+
   function pointerPos(e) {
     const rect = canvas.getBoundingClientRect();
     const point = e.touches ? e.touches[0] : e;
@@ -74,20 +120,18 @@
     if (submitted) return;
     drawing = true;
     const { x, y } = pointerPos(e);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
+    const point = { type: "start", x, y };
+    applyStrokePoint(ctx, point);
+    queueStrokePoint(point);
     e.preventDefault();
   }
 
   function moveDraw(e) {
     if (!drawing || submitted) return;
     const { x, y } = pointerPos(e);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = currentSize;
-    ctx.strokeStyle = eraserOn ? "#ffffff" : currentColor;
-    ctx.lineTo(x, y);
-    ctx.stroke();
+    const point = { type: "move", x, y, color: currentColor, size: currentSize, eraser: eraserOn };
+    applyStrokePoint(ctx, point);
+    queueStrokePoint(point);
     e.preventDefault();
   }
 
@@ -124,7 +168,14 @@
   document.getElementById("clear-btn").addEventListener("click", () => {
     if (submitted) return;
     resetCanvas();
+    socket.emit("clear_canvas");
   });
+
+  socket.on("opponent_draw_batch", (data) => {
+    (data.points || []).forEach((point) => applyStrokePoint(opponentCtx, point));
+  });
+
+  socket.on("opponent_clear_canvas", () => resetOpponentCanvas());
 
   document.getElementById("submit-btn").addEventListener("click", () => submitDrawing());
 
@@ -141,12 +192,13 @@
     submitted = false;
     document.getElementById("submit-btn").disabled = false;
     resetCanvas();
+    resetOpponentCanvas();
+    pendingPoints = [];
     referenceImg.src = data.reference_url;
     roundLabel.textContent = `Раунд ${data.round} / ${data.total_rounds}`;
     leftTag.textContent = "Вы";
     rightTag.textContent = data.opponent_name;
-    opponentOverlay.textContent = "Соперник рисует…";
-    opponentOverlay.classList.remove("hidden");
+    opponentBadge.classList.add("hidden");
     roundEndTime = data.end_time * 1000;
 
     showScreen("game");
@@ -163,12 +215,12 @@
   });
 
   socket.on("opponent_submitted", () => {
-    opponentOverlay.textContent = "Соперник готов ✔";
+    opponentBadge.textContent = "Готово ✔";
+    opponentBadge.classList.remove("hidden");
   });
 
   socket.on("round_result", (data) => {
     clearInterval(timerInterval);
-    opponentOverlay.classList.remove("hidden");
 
     document.getElementById("result-title").textContent =
       data.round < data.total_rounds || !data.match_over

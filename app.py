@@ -263,6 +263,37 @@ def on_join_game(data):
             socketio.emit("waiting", {}, to=sid)
 
 
+@socketio.on("draw_batch")
+def on_draw_batch(data):
+    sid = request.sid
+    room_id = sid_to_room.get(sid)
+    if not room_id:
+        return
+    room = rooms.get(room_id)
+    if not room or room["round_finished"]:
+        return
+    points = (data or {}).get("points")
+    if not points:
+        return
+    opponent_sid = next((s for s in room["players"] if s != sid), None)
+    if opponent_sid:
+        socketio.emit("opponent_draw_batch", {"points": points}, to=opponent_sid)
+
+
+@socketio.on("clear_canvas")
+def on_clear_canvas(_data):
+    sid = request.sid
+    room_id = sid_to_room.get(sid)
+    if not room_id:
+        return
+    room = rooms.get(room_id)
+    if not room or room["round_finished"]:
+        return
+    opponent_sid = next((s for s in room["players"] if s != sid), None)
+    if opponent_sid:
+        socketio.emit("opponent_clear_canvas", {}, to=opponent_sid)
+
+
 @socketio.on("submit")
 def on_submit(data):
     sid = request.sid
