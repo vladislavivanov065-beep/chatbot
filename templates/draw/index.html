@@ -4,21 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Дуэль художников</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='draw/css/style.css') }}">
 </head>
 <body>
+  <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+
   <div class="app">
 
-    <section id="screen-name" class="screen active">
-      <div class="card">
-        <h1>🎨 Дуэль художников</h1>
-        <p class="subtitle">Двое игроков. Один образец. Кто нарисует точнее — побеждает.</p>
-        <input id="name-input" type="text" maxlength="20" placeholder="Введите имя" autocomplete="off">
-        <button id="play-btn" class="btn btn-primary">Играть</button>
-      </div>
-    </section>
-
-    <section id="screen-waiting" class="screen">
+    <section id="screen-waiting" class="screen active">
       <div class="card">
         <div class="spinner"></div>
         <p>Ищем соперника…</p>
@@ -101,7 +94,7 @@
 
   </div>
 
-  <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='draw/js/main.js') }}"></script>
 </body>
 </html>

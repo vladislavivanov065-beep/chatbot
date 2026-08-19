@@ -1,0 +1,149 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+  color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 420px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.subtitle {
+  color: #555;
+  margin-bottom: 24px;
+}
+
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid #ddd;
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+input:focus {
+  outline: none;
+  border-color: #2575fc;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+  color: #fff;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.error-text {
+  color: #c0392b;
+  font-weight: 600;
+  margin: 4px 0 16px;
+}
+
+.switch-link {
+  margin-top: 18px;
+  color: #555;
+}
+
+.switch-link a {
+  color: #2575fc;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.switch-link a:hover {
+  text-decoration: underline;
+}
+
+/* --- lobby --- */
+
+.lobby-card {
+  max-width: 760px;
+}
+
+.lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.lobby-header .logout {
+  color: #999;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.lobby-header .logout:hover {
+  text-decoration: underline;
+}
+
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.game-card {
+  display: block;
+  padding: 24px 16px;
+  border-radius: 14px;
+  background: #f7f8fc;
+  border: 2px solid transparent;
+  text-decoration: none;
+  color: #1a1a2e;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.game-card:hover {
+  transform: translateY(-4px);
+  border-color: #2575fc;
+}
+
+.game-card .emoji {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.game-card .title {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.game-card .desc {
+  font-size: 13px;
+  color: #666;
+}

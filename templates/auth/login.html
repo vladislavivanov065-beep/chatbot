@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Вход — Игровая площадка</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card">
+    <h1>🎮 Игровая площадка</h1>
+    <p class="subtitle">Войдите, чтобы выбрать игру</p>
+
+    <form method="POST">
+      <input name="login" placeholder="Логин" value="{{ login_value }}" autocomplete="username" required autofocus>
+      <input name="password" type="password" placeholder="Пароль" autocomplete="current-password" required>
+      <button type="submit" class="btn">Войти</button>
+    </form>
+
+    {% if error %}<p class="error-text">{{ error }}</p>{% endif %}
+
+    <p class="switch-link">Нет аккаунта? <a href="{{ url_for('auth.register') }}">Зарегистрироваться</a></p>
+  </div>
+</body>
+</html>

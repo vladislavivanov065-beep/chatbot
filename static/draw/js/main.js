@@ -1,8 +1,7 @@
 (() => {
-  const socket = io();
+  const socket = io("/draw");
 
   const screens = {
-    name: document.getElementById("screen-name"),
     waiting: document.getElementById("screen-waiting"),
     game: document.getElementById("screen-game"),
     result: document.getElementById("screen-result"),
@@ -13,27 +12,19 @@
     screens[key].classList.add("active");
   }
 
-  // --- name / matchmaking ---
-
-  const nameInput = document.getElementById("name-input");
-  const playBtn = document.getElementById("play-btn");
+  // --- matchmaking ---
 
   function joinGame() {
-    const name = nameInput.value.trim();
-    socket.emit("join_game", { name });
+    socket.emit("join_game");
     showScreen("waiting");
   }
 
-  playBtn.addEventListener("click", joinGame);
-  nameInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") joinGame();
-  });
-
+  socket.on("connect", joinGame);
   socket.on("waiting", () => showScreen("waiting"));
 
   socket.on("opponent_left", () => {
     alert("Соперник отключился. Ищем нового…");
-    showScreen("name");
+    joinGame();
   });
 
   // --- drawing canvas ---
@@ -306,6 +297,8 @@
     const rematchBtn = document.getElementById("rematch-btn");
     const rematchStatus = document.getElementById("rematch-status");
     rematchStatus.textContent = "";
+    nextBtn.disabled = false;
+    rematchBtn.disabled = false;
 
     if (data.match_over) {
       nextBtn.classList.add("hidden");
@@ -321,9 +314,14 @@
     showScreen("result");
   });
 
-  document.getElementById("next-btn").addEventListener("click", () => {
-    showScreen("waiting");
-    document.querySelector("#screen-waiting p").textContent = "Ждём начала следующего раунда…";
+  document.getElementById("next-btn").addEventListener("click", (e) => {
+    socket.emit("ready_next_round");
+    e.target.disabled = true;
+    document.getElementById("rematch-status").textContent = "Ждём соперника…";
+  });
+
+  socket.on("opponent_ready_next_round", () => {
+    document.getElementById("rematch-status").textContent = "Соперник готов к следующему раунду!";
   });
 
   document.getElementById("rematch-btn").addEventListener("click", (e) => {

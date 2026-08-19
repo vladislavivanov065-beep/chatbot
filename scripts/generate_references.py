@@ -1,6 +1,6 @@
 """Generate colorful, moderately detailed reference drawings used as targets in the game.
 
-Run once (locally, at build time) to (re)populate static/references/*.png.
+Run once (locally, at build time) to (re)populate static/draw/references/*.png.
 Each image is a filled, multi-color picture with black outlines at 300x300.
 """
 import math
@@ -8,7 +8,9 @@ import os
 
 from PIL import Image, ImageDraw
 
-OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "references")
+OUT_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static", "draw", "references"
+)
 SIZE = 300
 LINE = 6
 BLACK = (20, 20, 20)
