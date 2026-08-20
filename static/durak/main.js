@@ -14,16 +14,19 @@
 
   const gameCard = document.getElementById('game-card');
   const statusLine = document.getElementById('status-line');
+  const opponentsRow = document.getElementById('opponents-row');
   const tableArea = document.getElementById('table-area');
   const actionBar = document.getElementById('action-bar');
   const hintText = document.getElementById('hint-text');
   const handArea = document.getElementById('hand-area');
+  const cheatBannerHolder = document.getElementById('cheat-banner-holder');
 
   const playersPanel = document.getElementById('players-panel');
 
   let lastState = null;
   let selectedCard = null;
   let transferMode = false;
+  let cheatMode = false;
   let hintTimer = null;
 
   socket.on('connect', () => {
@@ -45,7 +48,17 @@
     window.__lastStateForTest = state;
     selectedCard = null;
     transferMode = false;
+    cheatMode = false;
     render();
+  });
+
+  socket.on('cheat_caught', (data) => {
+    const banner = document.createElement('div');
+    banner.className = 'cheat-banner';
+    const cardTxt = data.card ? `${data.card.rank}${data.card.suit}` : '';
+    banner.textContent = `🎭 ${data.catcher} поймал ${data.cheater} на мухлеже! Карта ${cardTxt} возвращена.`;
+    cheatBannerHolder.appendChild(banner);
+    setTimeout(() => banner.remove(), 4000);
   });
 
   function flashHint(text, isError) {
@@ -133,9 +146,45 @@
       `Атакует: <b>${s.attacker}</b>${isAttacker ? ' (вы)' : ''} · ` +
       `Защищается: <b>${s.defender}</b>${isDefender ? ' (вы)' : ''}`;
 
+    renderOpponents();
     renderTable(isDefender);
     renderActionBar(isAttacker, isDefender);
     renderHand(isAttacker, isDefender);
+  }
+
+  function renderOpponents() {
+    opponentsRow.innerHTML = '';
+    const s = lastState;
+    (s.players || [])
+      .filter((p) => p.token !== token)
+      .forEach((p) => {
+        const seat = document.createElement('div');
+        seat.className = 'opponent-seat';
+        if (p.token === s.attacker) seat.classList.add('attacker');
+        if (p.token === s.defender) seat.classList.add('defender');
+        if (p.out) seat.classList.add('out');
+
+        const name = document.createElement('div');
+        name.className = 'opponent-name';
+        name.textContent = p.token;
+        if (p.marked_cheater) {
+          const badge = document.createElement('span');
+          badge.className = 'cheater-badge';
+          badge.title = 'Пойман на мухлеже';
+          badge.textContent = '🎭';
+          name.appendChild(badge);
+        }
+        seat.appendChild(name);
+
+        const backs = document.createElement('div');
+        backs.className = 'opponent-cardbacks';
+        for (let i = 0; i < p.hand_count; i++) {
+          backs.appendChild(cardEl(null));
+        }
+        seat.appendChild(backs);
+
+        opponentsRow.appendChild(seat);
+      });
   }
 
   function cardHtml(card) {
@@ -175,8 +224,14 @@
             });
             selectedCard = null;
           });
-        } else if (isDefender && selectedCard && !transferMode) {
-          // single open slot - clicking the hand card already auto-defended, nothing to do here
+        } else if (lastState.allow_cheating) {
+          // not mid-defend-selection: clicking a card on the table challenges
+          // it as a possible cheat (illegal off-rank throw-in)
+          slotEl.classList.add('catchable');
+          slotEl.title = 'Похоже на мухлёж? Нажмите, чтобы проверить';
+          slotEl.addEventListener('click', () => {
+            socket.emit('catch_cheat', { token, lobby_id: lobbyId, card: slot.attack });
+          });
         }
       }
       tableArea.appendChild(slotEl);
@@ -219,11 +274,25 @@
       actionBar.appendChild(doneBtn);
     }
 
+    if (!isDefender && s.table.length && s.allow_cheating && !s.my_cheated_out) {
+      const cheatBtn = document.createElement('button');
+      cheatBtn.className = 'btn btn-danger';
+      cheatBtn.textContent = cheatMode ? 'Отменить мухлёж' : 'Мухлевать 🎭';
+      cheatBtn.onclick = () => {
+        cheatMode = !cheatMode;
+        selectedCard = null;
+        render();
+      };
+      actionBar.appendChild(cheatBtn);
+    }
+
     let hint = '';
-    if (transferMode) hint = 'Выберите карту того же ранга, чтобы перевести ход';
+    if (cheatMode) hint = 'Выберите любую карту — она уйдёт на стол в обход правила ранга';
+    else if (transferMode) hint = 'Выберите карту того же ранга, чтобы перевести ход';
     else if (isDefender && s.has_open_slots) hint = 'Выберите карту, чтобы отбиться, или нажмите «Взять»';
     else if (isAttacker && !s.table.length) hint = 'Ваш ход — выберите карту для атаки';
     else if (!s.table.length) hint = 'Ждём хода атакующего…';
+    else if (s.allow_cheating) hint = 'Можно подкинуть карту того же ранга — или нажать на чужую карту на столе, если подозреваете мухлёж';
     else hint = 'Можно подкинуть карту того же ранга, что на столе';
     if (!hintTimer) hintText.textContent = hint;
     else if (!hintText.textContent) hintText.textContent = hint;
@@ -251,6 +320,13 @@
     if (isDefender && transferMode) {
       socket.emit('transfer', { token, lobby_id: lobbyId, card });
       selectedCard = null;
+      return;
+    }
+
+    if (!isDefender && cheatMode) {
+      socket.emit('play_card', { token, lobby_id: lobbyId, card, cheat: true });
+      selectedCard = null;
+      cheatMode = false;
       return;
     }
 
@@ -290,7 +366,7 @@
         if (p.out) row.classList.add('out');
       }
       const name = document.createElement('span');
-      name.textContent = p.token + (p.token === token ? ' (вы)' : '');
+      name.textContent = p.token + (p.token === token ? ' (вы)' : '') + (p.marked_cheater ? ' 🎭' : '');
       const info = document.createElement('span');
       if (p.hand_count !== null) {
         info.textContent = p.out ? 'вышел' : `${p.hand_count} карт`;

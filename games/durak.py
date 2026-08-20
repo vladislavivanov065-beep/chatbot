@@ -27,9 +27,9 @@ def new_lobby_id():
     return uuid.uuid4().hex[:8]
 
 
-def new_lobby(creator, variant, max_players):
+def new_lobby(creator, variant, max_players, allow_cheating):
     return {
-        "game": DurakGame(variant=variant, max_players=max_players),
+        "game": DurakGame(variant=variant, max_players=max_players, allow_cheating=allow_cheating),
         "creator": creator,
         "created_at": time.time(),
         "token_to_sid": {},
@@ -65,6 +65,7 @@ def index():
                 "variant": game.variant,
                 "players": len(game.seat_order),
                 "max_players": game.max_players,
+                "allow_cheating": game.allow_cheating,
                 "status": "finished" if game.finished else ("playing" if game.started else "waiting"),
             }
         )
@@ -80,8 +81,9 @@ def create():
         max_players = int(request.form.get("max_players", 4))
     except ValueError:
         max_players = 4
+    allow_cheating = request.form.get("allow_cheating") == "on"
     lobby_id = new_lobby_id()
-    lobbies[lobby_id] = new_lobby(session["user"], variant, max_players)
+    lobbies[lobby_id] = new_lobby(session["user"], variant, max_players, allow_cheating)
     return redirect(url_for("durak.lobby", lobby_id=lobby_id))
 
 
@@ -172,9 +174,34 @@ def on_play_card(data):
             return False, "Нет карты"
         if not game.table:
             return game.open_attack(token, card)
-        return game.throw_in(token, card)
+        return game.throw_in(token, card, as_cheat=bool(payload.get("cheat")))
 
     _dispatch(data, action)
+
+
+@socketio.on("catch_cheat", namespace=NAMESPACE)
+def on_catch_cheat(data):
+    token = (data or {}).get("token")
+    lobby_id = (data or {}).get("lobby_id")
+    lobby = lobbies.get(lobby_id)
+    if not token or not lobby:
+        return
+    card = _card_tuple((data or {}).get("card"))
+    if not card:
+        return
+    ok, result = lobby["game"].catch_cheat(token, card)
+    if not ok:
+        socketio.emit("action_error", {"message": result or "Действие невозможно"}, to=request.sid, namespace=NAMESPACE)
+        return
+    cheater = result
+    for sid in list(lobby["token_to_sid"].values()):
+        socketio.emit(
+            "cheat_caught",
+            {"catcher": token, "cheater": cheater, "card": {"rank": card[0], "suit": card[1]}},
+            to=sid,
+            namespace=NAMESPACE,
+        )
+    broadcast_state(lobby_id)
 
 
 @socketio.on("defend", namespace=NAMESPACE)

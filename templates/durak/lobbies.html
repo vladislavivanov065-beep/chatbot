@@ -29,7 +29,10 @@
           {% for l in lobbies %}
           <tr>
             <td>{{ l.creator }}</td>
-            <td>{{ "Переводной" if l.variant == "perevodnoy" else "Подкидной" }}</td>
+            <td>
+              {{ "Переводной" if l.variant == "perevodnoy" else "Подкидной" }}
+              {% if l.allow_cheating %}<span title="Разрешён мухлёж">🎭</span>{% endif %}
+            </td>
             <td>{{ l.players }} / {{ l.max_players }}</td>
             <td><span class="lobby-status {{ l.status }}">
               {{ {"waiting": "ожидание", "playing": "идёт партия", "finished": "завершена"}[l.status] }}
@@ -61,6 +64,11 @@
             <option value="{{ n }}" {{ "selected" if n == 4 else "" }}>{{ n }} игрока(ов)</option>
           {% endfor %}
         </select>
+
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:10px 0;">
+          <input type="checkbox" name="allow_cheating" style="width:auto;margin:0;">
+          Разрешить мухлёж 🎭 (можно подкинуть карту не в масть/номинал — если поймают, теряете эту возможность)
+        </label>
 
         <button type="submit" class="btn">Создать</button>
       </form>

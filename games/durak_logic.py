@@ -19,9 +19,11 @@ def _rank_index(rank):
 
 
 class DurakGame:
-    def __init__(self, variant="podkidnoy", max_players=4):
+    def __init__(self, variant="podkidnoy", max_players=4, allow_cheating=False):
         self.variant = variant  # "podkidnoy" | "perevodnoy"
         self.max_players = max(2, min(max_players, MAX_PLAYERS))
+        self.allow_cheating = allow_cheating
+        self.cheated_out = set()  # tokens who used up their one cheat attempt
 
         self.seat_order = []   # tokens, fixed turn order once started
         self.hands = {}        # token -> list[(rank, suit)]
@@ -143,10 +145,10 @@ class DurakGame:
         if card not in self.hands.get(token, []):
             return False, "Нет такой карты"
         self.hands[token].remove(card)
-        self.table.append({"attack": card, "defense": None})
+        self.table.append({"attack": card, "defense": None, "thrower": token, "illegal": False})
         return True, None
 
-    def can_throw(self, token, card):
+    def can_throw(self, token, card, as_cheat=False):
         if not self.started or self.finished or not self.table:
             return False
         if token not in self.seat_order or token == self.current_defender():
@@ -155,18 +157,49 @@ class DurakGame:
             return False
         if card not in self.hands.get(token, []):
             return False
-        if card[0] not in self._table_ranks():
-            return False
         if len(self.table) >= self.attack_cap():
             return False
+        if card[0] not in self._table_ranks():
+            return as_cheat and self.allow_cheating and token not in self.cheated_out
         return True
 
-    def throw_in(self, token, card):
-        if not self.can_throw(token, card):
+    def throw_in(self, token, card, as_cheat=False):
+        if not self.can_throw(token, card, as_cheat=as_cheat):
             return False, "Нельзя подкинуть эту карту"
+        illegal = card[0] not in self._table_ranks()
         self.hands[token].remove(card)
-        self.table.append({"attack": card, "defense": None})
+        self.table.append({"attack": card, "defense": None, "thrower": token, "illegal": illegal})
         return True, None
+
+    def catch_cheat(self, catcher_token, card):
+        """Challenge an open, still-undefended table card as an illegal throw-in.
+
+        Returns (True, cheater_token) if the challenge was correct — the card
+        goes back to the cheater's hand and they lose their ability to cheat
+        again this game. Returns (False, error_message) otherwise, including
+        when the challenged card turns out to have been legitimate.
+        """
+        if not self.started or self.finished:
+            return False, "Игра не идёт"
+        if not self.allow_cheating:
+            return False, "В этой игре мухлёж выключен"
+        if catcher_token not in self.seat_order or catcher_token in self.out_of_game:
+            return False, "Вы не участвуете в игре"
+        slot = next(
+            (s for s in self.table if tuple(s["attack"]) == tuple(card) and s["defense"] is None),
+            None,
+        )
+        if not slot:
+            return False, "Такой небитой карты на столе нет"
+        thrower = slot.get("thrower")
+        if catcher_token == thrower:
+            return False, "Нельзя поймать свою же карту"
+        if not slot.get("illegal"):
+            return False, "Эта карта честная"
+        self.table.remove(slot)
+        self.hands[thrower].append(slot["attack"])
+        self.cheated_out.add(thrower)
+        return True, thrower
 
     def defend(self, token, attack_card, defense_card):
         if not self.started or self.finished:
@@ -215,7 +248,7 @@ class DurakGame:
         if card[0] != rank or card not in self.hands.get(token, []):
             return False, "Нужна карта того же ранга"
         self.hands[token].remove(card)
-        self.table.append({"attack": card, "defense": None})
+        self.table.append({"attack": card, "defense": None, "thrower": token, "illegal": False})
         self.defender_idx = self._next_active_index(self.defender_idx)
         return True, None
 
@@ -338,6 +371,7 @@ class DurakGame:
                 "finished": False,
                 "variant": self.variant,
                 "max_players": self.max_players,
+                "allow_cheating": self.allow_cheating,
                 "seats": list(self.seat_order),
                 "can_start": self.can_start(),
                 "my_seat": self.seat_order.index(token) if token in self.seat_order else None,
@@ -367,12 +401,15 @@ class DurakGame:
             "can_transfer": self.can_transfer(token),
             "has_open_slots": bool(self._open_slots()),
             "attack_cap": self.attack_cap(),
+            "allow_cheating": self.allow_cheating,
+            "my_cheated_out": token in self.cheated_out,
             "table": table,
             "players": [
                 {
                     "token": t,
                     "hand_count": len(self.hands.get(t, [])),
                     "out": t in self.out_of_game,
+                    "marked_cheater": t in self.cheated_out,
                 }
                 for t in self.seat_order
             ],

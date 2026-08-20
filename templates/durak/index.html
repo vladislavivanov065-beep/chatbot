@@ -30,20 +30,28 @@
       <div class="card-panel" id="game-card" hidden>
         <div class="status-line" id="status-line"></div>
 
-        <div id="table-area"></div>
+        <div id="round-table">
+          <div id="opponents-row"></div>
+          <div id="table-oval">
+            <div id="table-area"></div>
+          </div>
+        </div>
 
         <div class="action-bar" id="action-bar"></div>
         <p class="hint-text" id="hint-text"></p>
 
+        <p class="hand-label">Ваши карты</p>
         <div id="hand-area"></div>
       </div>
 
-      <div class="card-panel">
+      <div class="card-panel" id="players-card-panel">
         <h3 style="margin-top:0;">Игроки</h3>
         <div class="players-panel" id="players-panel"></div>
       </div>
     </main>
   </div>
+
+  <div id="cheat-banner-holder"></div>
 
   <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
   <script>
