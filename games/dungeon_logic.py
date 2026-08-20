@@ -5,7 +5,8 @@ procedural rooms-and-corridors map, enemies that get stronger the
 further a room is from the spawn room, a shop, random loot drops, and
 a boss at the far end. See games/dungeon.py for the network layer and
 the in-app rules summary for the MVP simplifications made below
-(cardinal-only movement, no ranged/line-of-sight, shared team gold,
+(cardinal-only movement, ranged attacks are plain Manhattan-distance
+checks with no line-of-sight/wall occlusion, shared team gold,
 real-time revival window).
 """
 import random
@@ -24,6 +25,46 @@ BASE_HP = 30
 BASE_ATTACK = 7
 BASE_DEFENSE = 3
 DEPTH_SCALE = 0.9
+
+COMBAT_RADIUS = 3   # any enemy this close to any ally means the party is "in combat"
+MAGE_MAX_TARGETS = 3
+AOE_EXTRA_TARGET_MULT = 0.65   # per-target damage multiplier when hitting more than one target
+HEAL_MULT = 1.3
+
+CLASSES = {
+    "knight": {
+        "name": "Рыцарь", "emoji": "⚔️",
+        "desc": "Ближний бой, сбалансированные характеристики",
+        "hp_mult": 1.0, "attack_mult": 1.0, "defense_mult": 1.15,
+        "range": 1, "min_range": 1, "aoe": False, "can_heal": False, "regen_bonus": 0,
+    },
+    "tank": {
+        "name": "Танк", "emoji": "🧌",
+        "desc": "Орк или гном — много здоровья и усиленная регенерация",
+        "hp_mult": 1.6, "attack_mult": 0.8, "defense_mult": 1.3,
+        "range": 1, "min_range": 1, "aoe": False, "can_heal": False, "regen_bonus": 3,
+    },
+    "archer": {
+        "name": "Лучник", "emoji": "🏹",
+        "desc": "Атакует и видит дальше всех, но только на расстоянии и по одной цели",
+        "hp_mult": 0.85, "attack_mult": 1.0, "defense_mult": 0.75,
+        "range": 5, "min_range": 2, "aoe": False, "can_heal": False, "regen_bonus": 0,
+    },
+    "mage": {
+        "name": "Маг", "emoji": "🧙",
+        "desc": "Заклинания по нескольким целям или лечение союзников, но мало здоровья",
+        "hp_mult": 0.65, "attack_mult": 1.15, "defense_mult": 0.65,
+        "range": 4, "min_range": 1, "aoe": True, "can_heal": True, "regen_bonus": 0,
+    },
+}
+
+
+def _cls(player):
+    return CLASSES.get(player.get("cls", "knight"), CLASSES["knight"])
+
+
+def _max_targets(cls):
+    return MAGE_MAX_TARGETS if cls["aoe"] else 1
 
 THEMES = {
     "forest": {"name": "Лес", "floor": "#3b5d3a", "wall": "#20301f"},
@@ -118,6 +159,7 @@ class DungeonGame:
         self.max_players = max(1, min(max_players, MAX_PARTY))
 
         self.seat_order = []
+        self.seat_classes = {}   # token -> class key, chosen at join time
         self.started = False
         self.finished = False
         self.victory = None
@@ -138,12 +180,15 @@ class DungeonGame:
 
     # ---------- lobby ----------
 
-    def add_player(self, token):
+    def add_player(self, token, cls="knight"):
         if self.started or token in self.seat_order:
             return None
         if len(self.seat_order) >= self.max_players:
             return None
+        if cls not in CLASSES:
+            cls = "knight"
         self.seat_order.append(token)
+        self.seat_classes[token] = cls
         return len(self.seat_order) - 1
 
     def can_start(self):
@@ -159,8 +204,9 @@ class DungeonGame:
 
         self.players = {}
         for token in self.seat_order:
-            self.players[token] = {
+            player = {
                 "token": token,
+                "cls": self.seat_classes.get(token, "knight"),
                 "x": sx,
                 "y": sy,
                 "hp": BASE_HP,
@@ -170,6 +216,10 @@ class DungeonGame:
                 "equipment": {slot: None for slot in SLOTS},
                 "inventory": [],
             }
+            _, _, max_hp = self._player_stats(player)
+            player["max_hp"] = max_hp
+            player["hp"] = max_hp
+            self.players[token] = player
 
         for idx, room in enumerate(self.rooms[1:], start=1):
             depth = idx / (len(self.rooms) - 1)
@@ -244,15 +294,28 @@ class DungeonGame:
         return next((e for e in self.enemies if e["x"] == x and e["y"] == y and e["hp"] > 0), None)
 
     def _player_stats(self, player):
-        attack = BASE_ATTACK
-        defense = BASE_DEFENSE
-        max_hp = BASE_HP
+        cls = _cls(player)
+        attack = BASE_ATTACK * cls["attack_mult"]
+        defense = BASE_DEFENSE * cls["defense_mult"]
+        max_hp = BASE_HP * cls["hp_mult"]
         for item in player["equipment"].values():
             if item:
                 attack += item["attack"]
                 defense += item["defense"]
                 max_hp += item["hp"]
-        return attack, defense, max_hp
+        return round(attack), round(defense), round(max_hp)
+
+    def is_out_of_combat(self):
+        """Trading and equipping are only allowed away from danger: no living
+        enemy within COMBAT_RADIUS of any alive party member."""
+        if not self.started or self.finished:
+            return True
+        alive_players = [p for p in self.players.values() if p["status"] == "alive"]
+        return not any(
+            abs(e["x"] - p["x"]) + abs(e["y"] - p["y"]) <= COMBAT_RADIUS
+            for e in self.enemies
+            for p in alive_players
+        )
 
     def _refresh_max_hp(self, player):
         _, _, max_hp = self._player_stats(player)
@@ -275,7 +338,7 @@ class DungeonGame:
             return False, "Вы не можете действовать сейчас"
         if token in self.pending_actions:
             return False, "Действие уже выбрано на этот ход"
-        if action.get("type") not in ("move", "attack", "revive"):
+        if action.get("type") not in ("move", "attack", "revive", "heal"):
             return False, "Неизвестное действие"
         self.pending_actions[token] = action
 
@@ -312,7 +375,8 @@ class DungeonGame:
                 abs(e["x"] - player["x"]) + abs(e["y"] - player["y"]) <= 2 for e in self.enemies
             )
             if not near_enemy and player["hp"] < player["max_hp"]:
-                player["hp"] = min(player["max_hp"], player["hp"] + 2)
+                heal = 2 + _cls(player)["regen_bonus"]
+                player["hp"] = min(player["max_hp"], player["hp"] + heal)
 
     def _apply_player_action(self, player, action):
         kind = action.get("type")
@@ -335,23 +399,60 @@ class DungeonGame:
                     self.floor_items[(nx, ny)] = item
 
         elif kind == "attack":
-            target = action.get("target") or []
-            if len(target) != 2:
+            cls = _cls(player)
+            raw_targets = action.get("targets")
+            if raw_targets is None:
+                single = action.get("target")
+                raw_targets = [single] if single else []
+            max_targets = _max_targets(cls)
+            if not raw_targets or len(raw_targets) > max_targets:
                 return
-            tx, ty = target
-            if not self._adjacent(player["x"], player["y"], tx, ty):
-                return
-            enemy = self._enemy_at(tx, ty)
-            if not enemy:
-                return
-            dmg = max(1, attack - enemy["defense"])
-            enemy["hp"] -= dmg
-            self._log(f"{player['token']} бьёт {enemy['name']} на {dmg}.")
-            if enemy["hp"] <= 0:
-                self._kill_enemy(enemy)
+            enemies = []
+            seen = set()
+            for t in raw_targets:
+                if not isinstance(t, (list, tuple)) or len(t) != 2:
+                    return
+                tx, ty = t
+                if (tx, ty) in seen:
+                    return
+                seen.add((tx, ty))
+                dist = abs(player["x"] - tx) + abs(player["y"] - ty)
+                if dist < cls["min_range"] or dist > cls["range"]:
+                    return
+                enemy = self._enemy_at(tx, ty)
+                if not enemy:
+                    return
+                enemies.append(enemy)
+
+            dmg_mult = 1.0 if len(enemies) == 1 else AOE_EXTRA_TARGET_MULT
+            for enemy in enemies:
+                dmg = max(1, round(attack * dmg_mult) - enemy["defense"])
+                enemy["hp"] -= dmg
+                self._log(f"{player['token']} бьёт {enemy['name']} на {dmg}.")
+                if enemy["hp"] <= 0:
+                    self._kill_enemy(enemy)
+                    if self.finished:
+                        return
             # no immediate counter-attack here: a surviving enemy still gets
             # its one action this round, during the enemy phase below —
             # giving it a separate counter here as well would let it hit twice
+
+        elif kind == "heal":
+            cls = _cls(player)
+            if not cls["can_heal"]:
+                return
+            target_token = action.get("target")
+            ally = self.players.get(target_token)
+            if not ally or ally is player or ally["status"] != "alive":
+                return
+            dist = abs(player["x"] - ally["x"]) + abs(player["y"] - ally["y"])
+            if dist < 1 or dist > cls["range"]:
+                return
+            heal_amt = max(3, round(attack * HEAL_MULT))
+            before = ally["hp"]
+            ally["hp"] = min(ally["max_hp"], ally["hp"] + heal_amt)
+            healed = ally["hp"] - before
+            self._log(f"{player['token']} лечит {ally['token']} на {healed}.")
 
         elif kind == "revive":
             target_token = action.get("target")
@@ -454,6 +555,8 @@ class DungeonGame:
         player = self.players.get(token)
         if not player or player["status"] == "dead":
             return False, "Недоступно"
+        if not self.is_out_of_combat():
+            return False, "Нельзя менять экипировку в бою"
         item = next((i for i in player["inventory"] if i["id"] == item_id), None)
         if not item:
             return False, "Нет такого предмета"
@@ -463,6 +566,27 @@ class DungeonGame:
         if old:
             player["inventory"].append(old)
         self._refresh_max_hp(player)
+        return True, None
+
+    def give_item(self, token, item_id, to_token):
+        player = self.players.get(token)
+        ally = self.players.get(to_token)
+        if not player or not ally or player is ally:
+            return False, "Недоступно"
+        if player["status"] != "alive" or ally["status"] != "alive":
+            return False, "Оба игрока должны быть живы"
+        if not self.is_out_of_combat():
+            return False, "Нельзя передавать вещи в бою"
+        if not self._adjacent(player["x"], player["y"], ally["x"], ally["y"]):
+            return False, "Союзник должен быть рядом"
+        item = next((i for i in player["inventory"] if i["id"] == item_id), None)
+        if not item:
+            return False, "Нет такого предмета"
+        if len(ally["inventory"]) >= INVENTORY_CAP:
+            return False, "Инвентарь союзника полон"
+        player["inventory"].remove(item)
+        ally["inventory"].append(item)
+        self._log(f"{player['token']} передал {ally['token']}: {item['name']}.")
         return True, None
 
     def sell_item(self, token, item_id):
@@ -501,6 +625,7 @@ class DungeonGame:
             return
         if not self.started:
             self.seat_order.remove(token)
+            self.seat_classes.pop(token, None)
             return
         player = self.players.get(token)
         if player:
@@ -518,13 +643,17 @@ class DungeonGame:
 
     def state_for(self, token):
         if not self.started:
+            def seat_dict(t):
+                cls = CLASSES[self.seat_classes.get(t, "knight")]
+                return {"token": t, "cls": self.seat_classes.get(t, "knight"), "cls_name": cls["name"], "cls_emoji": cls["emoji"]}
+
             return {
                 "started": False,
                 "finished": False,
                 "theme": self.theme,
                 "theme_name": THEMES[self.theme]["name"],
                 "max_players": self.max_players,
-                "seats": list(self.seat_order),
+                "seats": [seat_dict(t) for t in self.seat_order],
                 "can_start": self.can_start(),
                 "my_seat": self.seat_order.index(token) if token in self.seat_order else None,
             }
@@ -534,11 +663,20 @@ class DungeonGame:
 
         def player_dict(p):
             attack, defense, max_hp = self._player_stats(p)
+            cls = _cls(p)
             downed_remaining = None
             if p["status"] == "downed":
                 downed_remaining = max(0, round(REVIVE_WINDOW_SECONDS - (now - p["downed_at"])))
             return {
                 "token": p["token"],
+                "cls": p.get("cls", "knight"),
+                "cls_name": cls["name"],
+                "cls_emoji": cls["emoji"],
+                "range": cls["range"],
+                "min_range": cls["min_range"],
+                "aoe": cls["aoe"],
+                "max_targets": _max_targets(cls),
+                "can_heal": cls["can_heal"],
                 "x": p["x"],
                 "y": p["y"],
                 "hp": max(0, p["hp"]),
@@ -562,6 +700,7 @@ class DungeonGame:
             "grid": rows,
             "round": self.round,
             "gold": self.gold,
+            "out_of_combat": self.is_out_of_combat(),
             "shop_tile": list(self.shop_tile) if self.shop_tile else None,
             "shop_stock": self.shop_stock,
             "players": [player_dict(p) for p in self.players.values()],

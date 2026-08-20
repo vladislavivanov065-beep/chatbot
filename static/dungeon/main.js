@@ -10,10 +10,17 @@
   };
   const SLOT_NAMES = { helmet: 'Шлем', armor: 'Доспехи', weapon: 'Оружие', shield: 'Щит' };
   const SLOT_EMOJI = { helmet: '🪖', armor: '🛡', weapon: '⚔️', shield: '🔰' };
+  const CLASS_INFO = [
+    { key: 'knight', name: 'Рыцарь', emoji: '⚔️', desc: 'Ближний бой, сбалансированные характеристики' },
+    { key: 'tank', name: 'Танк', emoji: '🧌', desc: 'Много здоровья, усиленная регенерация' },
+    { key: 'archer', name: 'Лучник', emoji: '🏹', desc: 'Бьёт издалека по одной цели, видит дальше всех' },
+    { key: 'mage', name: 'Маг', emoji: '🧙', desc: 'Заклинания по нескольким целям или лечение, мало здоровья' },
+  ];
 
   const waitingCard = document.getElementById('waiting-card');
   const waitingStatus = document.getElementById('waiting-status');
   const waitingPlayers = document.getElementById('waiting-players');
+  const classPicker = document.getElementById('class-picker');
   const joinBtn = document.getElementById('join-btn');
   const startBtn = document.getElementById('start-btn');
 
@@ -26,6 +33,10 @@
   const hudStatus = document.getElementById('hud-status');
   const mapGrid = document.getElementById('map-grid');
   const hintText = document.getElementById('hint-text');
+  const abilityBar = document.getElementById('ability-bar');
+  const modeAttackBtn = document.getElementById('mode-attack-btn');
+  const modeHealBtn = document.getElementById('mode-heal-btn');
+  const confirmAttackBtn = document.getElementById('confirm-attack-btn');
   const equipmentSlots = document.getElementById('equipment-slots');
   const inventoryList = document.getElementById('inventory-list');
   const eventLog = document.getElementById('event-log');
@@ -39,6 +50,25 @@
   let lastState = null;
   let shopOpen = false;
   let hintTimer = null;
+  let selectedClass = 'knight';
+  let mode = 'attack';   // 'attack' | 'heal' — only meaningful for mage
+  let selectedTargets = [];   // [[x,y], ...] pending AoE attack targets
+
+  function renderClassPicker() {
+    classPicker.innerHTML = '';
+    CLASS_INFO.forEach((c) => {
+      const card = document.createElement('div');
+      card.className = 'class-option' + (c.key === selectedClass ? ' selected' : '');
+      card.innerHTML =
+        `<div class="class-emoji">${c.emoji}</div><div class="class-name">${c.name}</div><div class="class-desc">${c.desc}</div>`;
+      card.addEventListener('click', () => {
+        selectedClass = c.key;
+        renderClassPicker();
+      });
+      classPicker.appendChild(card);
+    });
+  }
+  renderClassPicker();
 
   socket.on('connect', () => {
     socket.emit('register', { token, lobby_id: lobbyId });
@@ -52,6 +82,8 @@
   socket.on('action_error', (data) => {
     window.__lastActionError = (data && data.message) || 'Действие невозможно';
     flashHint(window.__lastActionError, true);
+    selectedTargets = [];
+    render();
   });
 
   socket.on('state', (state) => {
@@ -105,9 +137,12 @@
     const seats = lastState.seats || [];
     waitingStatus.innerHTML =
       `Карта: <b>${lastState.theme_name}</b> · Отряд: <b>${seats.length} / ${lastState.max_players}</b>`;
-    waitingPlayers.textContent = seats.length ? seats.join(', ') : 'Пока никого нет';
+    waitingPlayers.textContent = seats.length
+      ? seats.map((s) => `${s.cls_emoji} ${s.token} (${s.cls_name})`).join(', ')
+      : 'Пока никого нет';
 
     const alreadyIn = lastState.my_seat !== null && lastState.my_seat !== undefined;
+    classPicker.hidden = alreadyIn;
     joinBtn.hidden = alreadyIn;
     joinBtn.disabled = seats.length >= lastState.max_players;
     startBtn.hidden = !(window.IS_CREATOR && lastState.can_start);
@@ -127,10 +162,12 @@
     const me = s.players.find((p) => p.token === token);
 
     hudStatus.innerHTML =
-      `Карта: <b>${s.theme_name}</b> · Раунд: <b>${s.round}</b> · Золото отряда: <b>${s.gold}</b>💰`;
+      `Карта: <b>${s.theme_name}</b> · Раунд: <b>${s.round}</b> · Золото отряда: <b>${s.gold}</b>💰` +
+      ` · ${s.out_of_combat ? 'вне боя' : 'в бою'}`;
 
     renderHud();
     renderMap(me);
+    renderAbilityBar(me);
     renderEquipment(me);
     renderInventory(me);
     renderLog();
@@ -143,6 +180,12 @@
       const waitingOn = s.waiting_on || [];
       if (waitingOn.length && !waitingOn.includes(token)) {
         hintText.textContent = `Ждём ход: ${waitingOn.join(', ')}`;
+      } else if (me && me.status === 'alive' && mode === 'heal') {
+        hintText.textContent = `Режим лечения: кликните по союзнику в радиусе ${me.range} клеток.`;
+      } else if (me && me.status === 'alive' && me.aoe) {
+        hintText.textContent = `Выберите до ${me.max_targets} целей в радиусе ${me.range} клеток и подтвердите атаку.`;
+      } else if (me && me.status === 'alive' && me.range > 1) {
+        hintText.textContent = `Кликните по врагу в радиусе ${me.range}${me.min_range > 1 ? ` (не ближе ${me.min_range})` : ''} — атака. Пустая соседняя клетка — идти, союзник на земле рядом — оживить.`;
       } else if (me && me.status === 'alive') {
         hintText.textContent = 'Кликните по соседней клетке: пусто — идти, враг — атаковать, союзник на земле — оживить.';
       }
@@ -165,7 +208,9 @@
 
       const name = document.createElement('div');
       name.className = 'hud-name';
-      name.innerHTML = `<span>${p.token}${p.token === token ? ' (вы)' : ''}</span><span>${p.hp}/${p.max_hp}</span>`;
+      name.innerHTML =
+        `<span>${p.cls_emoji} ${p.token}${p.token === token ? ' (вы)' : ''} · ${p.cls_name}</span>` +
+        `<span>${p.hp}/${p.max_hp}</span>`;
       box.appendChild(name);
 
       const track = document.createElement('div');
@@ -211,6 +256,9 @@
     s.floor_items.forEach((fi) => (itemAt[fi.x + ',' + fi.y] = fi.item));
     const shop = s.shop_tile;
     const canAct = me && me.status === 'alive';
+    const range = me ? me.range : 1;
+    const minRange = me ? me.min_range : 1;
+    const healMode = mode === 'heal' && me && me.can_heal;
 
     for (let y = 0; y < s.height; y++) {
       for (let x = 0; x < s.width; x++) {
@@ -249,15 +297,35 @@
           tile.title = 'Магазин';
         }
 
-        if (canAct && isFloor && Math.abs(me.x - x) + Math.abs(me.y - y) === 1) {
-          if (enemy) {
+        if (canAct && isFloor) {
+          const dist = Math.abs(me.x - x) + Math.abs(me.y - y);
+          const adjacent = dist === 1;
+
+          if (healMode) {
+            if (dist >= 1 && dist <= range && here && here.length && !here.some((p) => p.status !== 'alive') && !here.some((p) => p.token === token)) {
+              tile.classList.add('actionable');
+              tile.addEventListener('click', () => {
+                submitTurn({ type: 'heal', target: here[0].token });
+                selectedTargets = [];
+              });
+            }
+          } else if (enemy && dist >= minRange && dist <= range) {
             tile.classList.add('actionable');
-            tile.addEventListener('click', () => submitTurn({ type: 'attack', target: [x, y] }));
-          } else if (here && here.some((p) => p.status === 'downed')) {
+            if (selectedTargets.some(([sx, sy]) => sx === x && sy === y)) {
+              tile.classList.add('selected-target');
+            }
+            tile.addEventListener('click', () => {
+              if (me.aoe) {
+                toggleTarget(x, y);
+              } else {
+                submitTurn({ type: 'attack', targets: [[x, y]] });
+              }
+            });
+          } else if (adjacent && !enemy && here && here.some((p) => p.status === 'downed')) {
             const ally = here.find((p) => p.status === 'downed');
             tile.classList.add('actionable');
             tile.addEventListener('click', () => submitTurn({ type: 'revive', target: ally.token }));
-          } else {
+          } else if (adjacent && !enemy && !(here && here.length)) {
             tile.classList.add('actionable');
             tile.addEventListener('click', () => submitTurn({ type: 'move', dx: x - me.x, dy: y - me.y }));
           }
@@ -266,6 +334,32 @@
         mapGrid.appendChild(tile);
       }
     }
+  }
+
+  function toggleTarget(x, y) {
+    const me = lastState.players.find((p) => p.token === token);
+    const maxT = me ? me.max_targets : 1;
+    const idx = selectedTargets.findIndex(([sx, sy]) => sx === x && sy === y);
+    if (idx >= 0) {
+      selectedTargets.splice(idx, 1);
+    } else if (selectedTargets.length < maxT) {
+      selectedTargets.push([x, y]);
+    }
+    render();
+  }
+
+  function renderAbilityBar(me) {
+    const showBar = me && me.status === 'alive' && (me.aoe || me.can_heal);
+    abilityBar.hidden = !showBar;
+    if (!showBar) return;
+
+    modeAttackBtn.classList.toggle('btn-ghost', mode !== 'attack');
+    modeHealBtn.hidden = !me.can_heal;
+    modeHealBtn.classList.toggle('btn-ghost', mode !== 'heal');
+
+    confirmAttackBtn.hidden = !(mode === 'attack' && me.aoe);
+    confirmAttackBtn.textContent = `Подтвердить атаку (${selectedTargets.length}/${me.max_targets})`;
+    confirmAttackBtn.disabled = selectedTargets.length === 0;
   }
 
   function itemLabel(item) {
@@ -313,6 +407,9 @@
       inventoryList.appendChild(empty);
       return;
     }
+    const outOfCombat = !!lastState.out_of_combat;
+    const teammates = (lastState.players || []).filter((p) => p.token !== token && p.status === 'alive');
+
     me.inventory.forEach((item) => {
       const row = document.createElement('div');
       row.className = 'inv-item';
@@ -323,18 +420,42 @@
 
       const actions = document.createElement('div');
       actions.className = 'inv-actions';
+
       const equipBtn = document.createElement('button');
       equipBtn.className = 'btn btn-small';
       equipBtn.textContent = 'Надеть';
+      equipBtn.disabled = !outOfCombat;
+      equipBtn.title = outOfCombat ? '' : 'Только вне боя';
       equipBtn.onclick = () => socket.emit('equip_item', { token, lobby_id: lobbyId, item_id: item.id });
+      actions.appendChild(equipBtn);
+
       const sellBtn = document.createElement('button');
       sellBtn.className = 'btn btn-ghost btn-small';
       sellBtn.textContent = `Продать (${Math.max(1, Math.floor(item.price / 2))}💰)`;
       sellBtn.onclick = () => socket.emit('sell_item', { token, lobby_id: lobbyId, item_id: item.id });
-      actions.appendChild(equipBtn);
       actions.appendChild(sellBtn);
-      row.appendChild(actions);
 
+      if (teammates.length) {
+        const giveSelect = document.createElement('select');
+        giveSelect.className = 'give-select';
+        teammates.forEach((t) => {
+          const opt = document.createElement('option');
+          opt.value = t.token;
+          opt.textContent = t.token;
+          giveSelect.appendChild(opt);
+        });
+        const giveBtn = document.createElement('button');
+        giveBtn.className = 'btn btn-ghost btn-small';
+        giveBtn.textContent = 'Отдать';
+        giveBtn.disabled = !outOfCombat;
+        giveBtn.title = outOfCombat ? '' : 'Только вне боя';
+        giveBtn.onclick = () =>
+          socket.emit('give_item', { token, lobby_id: lobbyId, item_id: item.id, to: giveSelect.value });
+        actions.appendChild(giveSelect);
+        actions.appendChild(giveBtn);
+      }
+
+      row.appendChild(actions);
       inventoryList.appendChild(row);
     });
   }
@@ -386,11 +507,29 @@
   }
 
   joinBtn.addEventListener('click', () => {
-    socket.emit('join', { token, lobby_id: lobbyId });
+    socket.emit('join', { token, lobby_id: lobbyId, cls: selectedClass });
   });
 
   startBtn.addEventListener('click', () => {
     socket.emit('start_game', { token, lobby_id: lobbyId });
+  });
+
+  modeAttackBtn.addEventListener('click', () => {
+    mode = 'attack';
+    selectedTargets = [];
+    render();
+  });
+
+  modeHealBtn.addEventListener('click', () => {
+    mode = 'heal';
+    selectedTargets = [];
+    render();
+  });
+
+  confirmAttackBtn.addEventListener('click', () => {
+    if (!selectedTargets.length) return;
+    submitTurn({ type: 'attack', targets: selectedTargets.slice() });
+    selectedTargets = [];
   });
 
   shopCloseBtn.addEventListener('click', () => {

@@ -17,6 +17,7 @@
       <div class="card-panel" id="waiting-card">
         <div class="status-line" id="waiting-status"></div>
         <div class="players-list" id="waiting-players"></div>
+        <div id="class-picker" class="class-picker"></div>
         <div class="action-bar">
           <button id="join-btn" class="btn">Присоединиться к отряду</button>
           <button id="start-btn" class="btn btn-ghost" hidden>Начать забег</button>
@@ -39,6 +40,11 @@
             <div id="map-grid"></div>
           </div>
           <p class="hint-text" id="hint-text"></p>
+          <div class="action-bar" id="ability-bar" hidden>
+            <button id="mode-attack-btn" class="btn btn-small">⚔️ Атака</button>
+            <button id="mode-heal-btn" class="btn btn-small btn-ghost" hidden>✨ Лечение</button>
+            <button id="confirm-attack-btn" class="btn btn-small" hidden>Подтвердить атаку</button>
+          </div>
           <div class="action-bar">
             <button id="shop-open-btn" class="btn btn-small" hidden>🏪 Открыть магазин</button>
           </div>

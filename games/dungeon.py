@@ -124,10 +124,11 @@ def on_register(data):
 def on_join(data):
     token = (data or {}).get("token")
     lobby_id = (data or {}).get("lobby_id")
+    cls = (data or {}).get("cls") or "knight"
     lobby = lobbies.get(lobby_id)
     if not token or not lobby:
         return
-    seat = lobby["game"].add_player(token)
+    seat = lobby["game"].add_player(token, cls)
     if seat is None:
         socketio.emit(
             "action_error",
@@ -200,6 +201,14 @@ def on_sell_item(data):
 def on_buy_item(data):
     def action(game, token, payload):
         return game.buy_item(token, payload.get("item_id"))
+
+    _dispatch(data, action)
+
+
+@socketio.on("give_item", namespace=NAMESPACE)
+def on_give_item(data):
+    def action(game, token, payload):
+        return game.give_item(token, payload.get("item_id"), payload.get("to"))
 
     _dispatch(data, action)
 
