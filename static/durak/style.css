@@ -1,0 +1,259 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: radial-gradient(circle at top, #2f7a4f 0%, #1d5c38 45%, #123f26 100%);
+  color: #f2fbf5;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+#topbar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+#topbar a {
+  margin-left: auto;
+  color: #d7f5e2;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#topbar a:hover {
+  text-decoration: underline;
+}
+
+#layout {
+  max-width: 980px;
+  margin: 20px auto;
+  padding: 0 16px 40px;
+}
+
+.card-panel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  font-size: 14px;
+  color: #d7f5e2;
+  margin-bottom: 4px;
+}
+
+.status-line b {
+  color: #fff;
+}
+
+#waiting-panel .players-list {
+  margin: 12px 0;
+  font-size: 15px;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #e0a63b, #b9761c);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #d9534f, #a83430);
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.action-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+/* --- table --- */
+
+#table-area {
+  min-height: 150px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.table-empty {
+  color: rgba(255, 255, 255, 0.5);
+  align-self: center;
+  font-style: italic;
+}
+
+.slot {
+  position: relative;
+  width: 60px;
+  height: 84px;
+}
+
+.slot .card {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.slot .card.defense {
+  top: 14px;
+  left: 18px;
+}
+
+.slot.open {
+  outline: 2px dashed rgba(255, 255, 255, 0.4);
+  outline-offset: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.slot.open.targetable {
+  outline-color: #ffd166;
+}
+
+/* --- cards --- */
+
+.card {
+  width: 56px;
+  height: 80px;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+
+.card.red {
+  color: #c0392b;
+}
+
+.card .suit {
+  font-size: 20px;
+  margin-top: 2px;
+}
+
+.card.back {
+  background: repeating-linear-gradient(45deg, #234d8a, #234d8a 6px, #1b3c6b 6px, #1b3c6b 12px);
+}
+
+.card.trump-marker {
+  transform: rotate(90deg);
+}
+
+/* --- hand --- */
+
+#hand-area {
+  display: flex;
+  gap: -10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
+.hand-card {
+  cursor: pointer;
+  transition: transform 0.1s ease;
+  margin-right: -14px;
+}
+
+.hand-card:hover {
+  transform: translateY(-8px);
+}
+
+.hand-card.selected {
+  transform: translateY(-14px);
+  outline: 3px solid #ffd166;
+  outline-offset: 2px;
+}
+
+.hand-card.disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* --- players panel --- */
+
+.players-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.player-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.player-row.attacker {
+  background: rgba(224, 166, 59, 0.35);
+}
+
+.player-row.defender {
+  background: rgba(90, 150, 255, 0.3);
+}
+
+.player-row.out {
+  opacity: 0.5;
+}
+
+.hint-text {
+  font-size: 13px;
+  color: #d7f5e2;
+  min-height: 18px;
+}
+
+.finished-banner {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 12px 0;
+}
+
+/* --- lobby list page reuses static/site.css; nothing extra needed here --- */
