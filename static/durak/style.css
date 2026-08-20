@@ -1,0 +1,384 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: radial-gradient(circle at top, #2f7a4f 0%, #1d5c38 45%, #123f26 100%);
+  color: #f2fbf5;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+#topbar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+#topbar a {
+  margin-left: auto;
+  color: #d7f5e2;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#topbar a:hover {
+  text-decoration: underline;
+}
+
+#layout {
+  max-width: 980px;
+  margin: 20px auto;
+  padding: 0 16px 40px;
+}
+
+.card-panel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  font-size: 14px;
+  color: #d7f5e2;
+  margin-bottom: 4px;
+}
+
+.status-line b {
+  color: #fff;
+}
+
+#waiting-panel .players-list {
+  margin: 12px 0;
+  font-size: 15px;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #e0a63b, #b9761c);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #d9534f, #a83430);
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.action-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+/* --- round table --- */
+
+#round-table {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+#opponents-row {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding: 6px 10px 18px;
+}
+
+.opponent-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.opponent-seat.attacker {
+  background: rgba(224, 166, 59, 0.3);
+}
+
+.opponent-seat.defender {
+  background: rgba(90, 150, 255, 0.28);
+}
+
+.opponent-seat.out {
+  opacity: 0.45;
+}
+
+.opponent-name {
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.opponent-cardbacks {
+  display: flex;
+}
+
+.opponent-cardbacks .card {
+  width: 26px;
+  height: 38px;
+  border-radius: 4px;
+  margin-left: -14px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+.opponent-cardbacks .card:first-child {
+  margin-left: 0;
+}
+
+.cheater-badge {
+  font-size: 12px;
+}
+
+#table-oval {
+  width: 100%;
+  max-width: 520px;
+  min-height: 170px;
+  background: radial-gradient(ellipse at center, #2a6b46 0%, #184228 100%);
+  border: 6px solid #0e2c1a;
+  border-radius: 50% / 35%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* --- table --- */
+
+#table-area {
+  min-height: 120px;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+}
+
+.hand-label {
+  text-align: center;
+  font-size: 13px;
+  color: #d7f5e2;
+  margin: 4px 0 0;
+}
+
+.table-empty {
+  color: rgba(255, 255, 255, 0.5);
+  align-self: center;
+  font-style: italic;
+}
+
+.slot {
+  position: relative;
+  width: 60px;
+  height: 84px;
+}
+
+.slot .card {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.slot .card.defense {
+  top: 14px;
+  left: 18px;
+}
+
+.slot.open {
+  outline: 2px dashed rgba(255, 255, 255, 0.4);
+  outline-offset: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.slot.open.targetable {
+  outline-color: #ffd166;
+}
+
+/* --- cards --- */
+
+.card {
+  width: 56px;
+  height: 80px;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+
+.card.red {
+  color: #c0392b;
+}
+
+.card .suit {
+  font-size: 20px;
+  margin-top: 2px;
+}
+
+.card.back {
+  background: repeating-linear-gradient(45deg, #234d8a, #234d8a 6px, #1b3c6b 6px, #1b3c6b 12px);
+}
+
+.card.trump-marker {
+  transform: rotate(90deg);
+}
+
+/* --- hand --- */
+
+#hand-area {
+  display: flex;
+  gap: -10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
+.hand-card {
+  cursor: pointer;
+  transition: transform 0.1s ease;
+  margin-right: -14px;
+}
+
+.hand-card:hover {
+  transform: translateY(-8px);
+}
+
+.hand-card.selected {
+  transform: translateY(-14px);
+  outline: 3px solid #ffd166;
+  outline-offset: 2px;
+}
+
+.hand-card.disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* --- players panel --- */
+
+.players-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.player-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.player-row.attacker {
+  background: rgba(224, 166, 59, 0.35);
+}
+
+.player-row.defender {
+  background: rgba(90, 150, 255, 0.3);
+}
+
+.player-row.out {
+  opacity: 0.5;
+}
+
+.hint-text {
+  font-size: 13px;
+  color: #d7f5e2;
+  min-height: 18px;
+}
+
+.finished-banner {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 12px 0;
+}
+
+/* --- cheat catch effect --- */
+
+#cheat-banner-holder {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.cheat-banner {
+  background: linear-gradient(135deg, #d9534f, #a83430);
+  color: #fff;
+  font-weight: 700;
+  padding: 12px 22px;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: cheat-pop 0.35s ease;
+}
+
+@keyframes cheat-pop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.slot.catchable {
+  cursor: pointer;
+}
+
+.slot.catchable:hover {
+  outline: 2px solid rgba(255, 100, 100, 0.6);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+/* --- lobby list page reuses static/site.css; nothing extra needed here --- */
