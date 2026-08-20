@@ -11,6 +11,7 @@ from extensions import socketio
 from games.chess import chess_bp
 from games.dice import dice_bp
 from games.draw import draw_bp
+from games.dungeon import dungeon_bp
 from games.durak import durak_bp
 
 app = Flask(__name__)
@@ -23,6 +24,7 @@ app.register_blueprint(draw_bp)
 app.register_blueprint(dice_bp)
 app.register_blueprint(chess_bp)
 app.register_blueprint(durak_bp)
+app.register_blueprint(dungeon_bp)
 
 init_db()
 
