@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Покер — лобби</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card lobby-card">
+    <div class="lobby-topbar">
+      <h1 style="margin:0;">♠️ Покер</h1>
+      <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+    </div>
+    <p class="subtitle">{{ min_players }}-{{ max_players_cap }} игроков, Техасский Холдем на фишки (без денег)</p>
+
+    {% if lobbies %}
+      <table class="lobby-table">
+        <thead>
+          <tr>
+            <th>Создатель</th>
+            <th>Игроки</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lobbies %}
+          <tr>
+            <td>{{ l.creator }}</td>
+            <td>{{ l.players }} / {{ l.max_players }}</td>
+            <td><span class="lobby-status {{ l.status }}">
+              {{ {"waiting": "сбор игроков", "playing": "игра идёт", "finished": "игра окончена"}[l.status] }}
+            </span></td>
+            <td>
+              <a href="{{ url_for('poker.lobby', lobby_id=l.lobby_id) }}">
+                <button type="button" class="btn btn-primary btn-small">Войти</button>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="lobby-empty">Активных игр пока нет — начните свою!</p>
+    {% endif %}
+
+    <div class="lobby-create-form">
+      <form method="POST" action="{{ url_for('poker.create') }}">
+        <h3 style="margin-top:0;">Создать лобби</h3>
+
+        <select name="max_players" required>
+          <option value="2">2 игрока</option>
+          <option value="3">3 игрока</option>
+          <option value="4">4 игрока</option>
+          <option value="5">5 игроков</option>
+          <option value="6" selected>6 игроков</option>
+          <option value="7">7 игроков</option>
+          <option value="8">8 игроков</option>
+        </select>
+
+        <button type="submit" class="btn">Создать</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
