@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Морской бой</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='battleship/style.css') }}">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <h1>🚢 Морской бой</h1>
+      <a href="{{ url_for('battleship.index') }}">← К лобби морского боя</a>
+    </header>
+
+    <main id="layout">
+      <div class="card-panel" id="waiting-card">
+        <div class="status-line" id="waiting-status"></div>
+        <div class="players-list" id="waiting-players"></div>
+        <div class="action-bar">
+          <button id="join-btn" class="btn">Присоединиться</button>
+          <button id="start-btn" class="btn btn-ghost" hidden>Начать расстановку</button>
+        </div>
+      </div>
+
+      <div class="card-panel" id="placing-card" hidden>
+        <div class="status-line" id="placing-status"></div>
+        <div id="placement-layout">
+          <div class="board-panel">
+            <h3 style="margin-top:0;">Моё поле</h3>
+            <div id="own-board-grid" class="bs-grid"></div>
+          </div>
+          <div class="ships-panel">
+            <h3 style="margin-top:0;">Корабли</h3>
+            <div id="ship-list"></div>
+            <div class="action-bar">
+              <button id="rotate-btn" class="btn btn-ghost btn-small">Повернуть ⟳</button>
+              <button id="randomize-btn" class="btn btn-ghost btn-small">Случайно 🎲</button>
+            </div>
+            <div class="action-bar">
+              <button id="ready-btn" class="btn" disabled>Готов к бою</button>
+            </div>
+            <p class="hint-text" id="placing-hint">Выберите корабль в списке, затем кликните по полю. Клик по уже стоящему кораблю — убрать его.</p>
+            <div id="others-ready-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-panel" id="finished-card" hidden>
+        <div class="finished-banner" id="finished-banner"></div>
+        <div id="finished-log"></div>
+      </div>
+
+      <div id="battle-layout" hidden>
+        <div class="card-panel" id="battle-status-panel">
+          <div class="status-line" id="battle-status"></div>
+          <div id="targets-tabs"></div>
+        </div>
+
+        <div class="card-panel" id="battle-boards">
+          <div class="board-panel">
+            <h3 style="margin-top:0;">Моё поле</h3>
+            <div id="my-board-grid" class="bs-grid"></div>
+          </div>
+          <div class="board-panel">
+            <h3 id="target-board-title" style="margin-top:0;">Поле противника</h3>
+            <div id="target-board-grid" class="bs-grid"></div>
+            <p class="hint-text" id="battle-hint"></p>
+          </div>
+        </div>
+
+        <div class="card-panel" id="battle-log-panel">
+          <h3 style="margin-top:0;">Журнал</h3>
+          <div id="battle-log"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+  <script>
+    window.PLAYER_TOKEN = {{ token|tojson }};
+    window.LOBBY_ID = {{ lobby_id|tojson }};
+    window.IS_CREATOR = {{ is_creator|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='battleship/main.js') }}"></script>
+</body>
+</html>

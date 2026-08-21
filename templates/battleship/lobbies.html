@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Морской бой — лобби</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card lobby-card">
+    <div class="lobby-topbar">
+      <h1 style="margin:0;">🚢 Морской бой</h1>
+      <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+    </div>
+    <p class="subtitle">2-4 игрока, каждый ход — выстрел по полю любого соперника</p>
+
+    {% if lobbies %}
+      <table class="lobby-table">
+        <thead>
+          <tr>
+            <th>Создатель</th>
+            <th>Игроки</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lobbies %}
+          <tr>
+            <td>{{ l.creator }}</td>
+            <td>{{ l.players }} / {{ l.max_players }}</td>
+            <td><span class="lobby-status {{ l.status }}">
+              {{ {"waiting": "сбор игроков", "playing": "бой идёт", "finished": "бой окончен"}[l.status] }}
+            </span></td>
+            <td>
+              <a href="{{ url_for('battleship.lobby', lobby_id=l.lobby_id) }}">
+                <button type="button" class="btn btn-primary btn-small">Войти</button>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="lobby-empty">Активных боёв пока нет — начните свой!</p>
+    {% endif %}
+
+    <div class="lobby-create-form">
+      <form method="POST" action="{{ url_for('battleship.create') }}">
+        <h3 style="margin-top:0;">Создать лобби</h3>
+
+        <select name="max_players" required>
+          <option value="2">2 игрока</option>
+          <option value="3">3 игрока</option>
+          <option value="4" selected>4 игрока</option>
+        </select>
+
+        <button type="submit" class="btn">Создать</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

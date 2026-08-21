@@ -8,11 +8,13 @@ from flask import Flask, redirect, render_template, session, url_for
 from auth import auth_bp, login_required
 from db import init_db
 from extensions import socketio
+from games.battleship import battleship_bp
 from games.chess import chess_bp
 from games.dice import dice_bp
 from games.draw import draw_bp
 from games.dungeon import dungeon_bp
 from games.durak import durak_bp
+from games.solitaire import solitaire_bp
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
@@ -25,6 +27,8 @@ app.register_blueprint(dice_bp)
 app.register_blueprint(chess_bp)
 app.register_blueprint(durak_bp)
 app.register_blueprint(dungeon_bp)
+app.register_blueprint(battleship_bp)
+app.register_blueprint(solitaire_bp)
 
 init_db()
 
