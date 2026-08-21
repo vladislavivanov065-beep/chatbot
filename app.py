@@ -16,6 +16,7 @@ from games.dungeon import dungeon_bp
 from games.durak import durak_bp
 from games.mafia import mafia_bp
 from games.solitaire import solitaire_bp
+from games.uno import uno_bp
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
@@ -31,6 +32,7 @@ app.register_blueprint(dungeon_bp)
 app.register_blueprint(battleship_bp)
 app.register_blueprint(solitaire_bp)
 app.register_blueprint(mafia_bp)
+app.register_blueprint(uno_bp)
 
 init_db()
 

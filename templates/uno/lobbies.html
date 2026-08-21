@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Уно — лобби</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card lobby-card">
+    <div class="lobby-topbar">
+      <h1 style="margin:0;">🎴 Уно</h1>
+      <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+    </div>
+    <p class="subtitle">{{ min_players }}-{{ max_players_cap }} игроков — избавьтесь от карт первым</p>
+
+    {% if lobbies %}
+      <table class="lobby-table">
+        <thead>
+          <tr>
+            <th>Создатель</th>
+            <th>Игроки</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lobbies %}
+          <tr>
+            <td>{{ l.creator }}</td>
+            <td>{{ l.players }} / {{ l.max_players }}</td>
+            <td><span class="lobby-status {{ l.status }}">
+              {{ {"waiting": "сбор игроков", "playing": "игра идёт", "finished": "игра окончена"}[l.status] }}
+            </span></td>
+            <td>
+              <a href="{{ url_for('uno.lobby', lobby_id=l.lobby_id) }}">
+                <button type="button" class="btn btn-primary btn-small">Войти</button>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="lobby-empty">Активных игр пока нет — начните свою!</p>
+    {% endif %}
+
+    <div class="lobby-create-form">
+      <form method="POST" action="{{ url_for('uno.create') }}">
+        <h3 style="margin-top:0;">Создать лобби</h3>
+
+        <select name="max_players" required>
+          <option value="2">2 игрока</option>
+          <option value="3">3 игрока</option>
+          <option value="4" selected>4 игрока</option>
+          <option value="5">5 игроков</option>
+          <option value="6">6 игроков</option>
+        </select>
+
+        <button type="submit" class="btn">Создать</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
