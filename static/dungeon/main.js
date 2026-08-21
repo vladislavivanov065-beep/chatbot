@@ -162,8 +162,12 @@
     const me = s.players.find((p) => p.token === token);
 
     hudStatus.innerHTML =
-      `Карта: <b>${s.theme_name}</b> · Раунд: <b>${s.round}</b> · Золото отряда: <b>${s.gold}</b>💰` +
-      ` · ${s.out_of_combat ? 'вне боя' : 'в бою'}`;
+      `<div class="resource-bar">` +
+      `<span class="resource-badge"><span class="resource-icon">🗺️</span>${s.theme_name}</span>` +
+      `<span class="resource-badge"><span class="resource-icon">⏱️</span>Раунд ${s.round}</span>` +
+      `<span class="resource-badge gold"><span class="resource-icon">🪙</span>${s.gold}</span>` +
+      `<span class="resource-badge ${s.out_of_combat ? 'safe' : 'danger'}">${s.out_of_combat ? 'Вне боя' : 'В бою'}</span>` +
+      `</div>`;
 
     renderHud();
     renderMap(me);
@@ -206,35 +210,71 @@
       if (p.status === 'downed') box.classList.add('downed');
       if (p.status === 'dead') box.classList.add('dead');
 
+      const ring = document.createElement('div');
+      ring.className = 'hud-ring';
+      const pct = Math.max(0, Math.round((100 * p.hp) / p.max_hp));
+      ring.style.setProperty('--pct', pct);
+      ring.style.setProperty('--ring-color', pct < 35 ? '#e2564a' : '#5fd068');
+
+      const avatar = document.createElement('div');
+      avatar.className = 'hud-avatar';
+      avatar.textContent = p.status === 'dead' ? '💀' : p.cls_emoji;
+      ring.appendChild(avatar);
+      box.appendChild(ring);
+
       const name = document.createElement('div');
       name.className = 'hud-name';
-      name.innerHTML =
-        `<span>${p.cls_emoji} ${p.token}${p.token === token ? ' (вы)' : ''} · ${p.cls_name}</span>` +
-        `<span>${p.hp}/${p.max_hp}</span>`;
+      name.textContent = `${p.token}${p.token === token ? ' (вы)' : ''}`;
       box.appendChild(name);
 
-      const track = document.createElement('div');
-      track.className = 'hp-bar-track';
-      const fill = document.createElement('div');
-      fill.className = 'hp-bar-fill' + (p.hp / p.max_hp < 0.35 ? ' low' : '');
-      fill.style.width = Math.max(0, Math.round((100 * p.hp) / p.max_hp)) + '%';
-      track.appendChild(fill);
-      box.appendChild(track);
+      const hp = document.createElement('div');
+      hp.className = 'hud-hp';
+      hp.textContent = `${p.hp}/${p.max_hp}`;
+      box.appendChild(hp);
 
       if (p.status === 'downed' && p.downed_remaining !== null) {
         const timer = document.createElement('div');
         timer.className = 'downed-timer';
-        timer.textContent = `⏳ ${p.downed_remaining} сек на спасение`;
+        timer.textContent = `⏳ ${p.downed_remaining} сек`;
         box.appendChild(timer);
       } else if (p.status === 'dead') {
         const timer = document.createElement('div');
         timer.className = 'downed-timer';
-        timer.textContent = 'выбыл из забега';
+        timer.textContent = 'выбыл';
         box.appendChild(timer);
       }
 
       hudPlayers.appendChild(box);
     });
+  }
+
+  function createFigure(emoji, badgeClass, hpFrac) {
+    const figure = document.createElement('div');
+    figure.className = 'figure';
+
+    const shadow = document.createElement('div');
+    shadow.className = 'figure-shadow';
+    figure.appendChild(shadow);
+
+    const badge = document.createElement('div');
+    badge.className = 'figure-badge ' + badgeClass;
+    const em = document.createElement('span');
+    em.className = 'figure-emoji';
+    em.textContent = emoji;
+    badge.appendChild(em);
+    figure.appendChild(badge);
+
+    if (hpFrac !== undefined && hpFrac !== null) {
+      const hpWrap = document.createElement('div');
+      hpWrap.className = 'figure-hp';
+      const hpFill = document.createElement('div');
+      hpFill.className = 'figure-hp-fill';
+      hpFill.style.width = Math.max(0, Math.round(hpFrac * 100)) + '%';
+      hpWrap.appendChild(hpFill);
+      badge.appendChild(hpWrap);
+    }
+
+    return figure;
   }
 
   function renderMap(me) {
@@ -275,20 +315,16 @@
         const here = playersAt[key];
 
         if (enemy) {
-          tile.textContent = enemy.emoji;
-          const hpWrap = document.createElement('div');
-          hpWrap.className = 'mini-hp';
-          const hpFill = document.createElement('div');
-          hpFill.className = 'mini-hp-fill';
-          hpFill.style.width = Math.max(0, Math.round((100 * enemy.hp) / enemy.max_hp)) + '%';
-          hpWrap.appendChild(hpFill);
-          tile.appendChild(hpWrap);
+          const badgeClass = 'enemy' + (enemy.is_boss ? ' boss' : '');
+          tile.appendChild(createFigure(enemy.emoji, badgeClass, enemy.hp / enemy.max_hp));
           tile.title = `${enemy.name} (${enemy.hp}/${enemy.max_hp})`;
         } else if (here && here.length) {
           const anyDowned = here.some((p) => p.status === 'downed');
-          tile.textContent = anyDowned ? '💀' : '🧑';
+          const isMe = here.some((p) => p.token === token);
+          const badgeClass = 'player' + (isMe ? ' self' : '') + (anyDowned ? ' downed' : '');
+          tile.appendChild(createFigure(anyDowned ? '💀' : '🧑', badgeClass));
           tile.title = here.map((p) => `${p.token} (${p.status})`).join(', ');
-          if (here.some((p) => p.token === token)) tile.classList.add('player-here');
+          if (isMe) tile.classList.add('player-here');
         } else if (itemAt[key]) {
           tile.textContent = '✨';
           tile.title = itemAt[key].name;
@@ -379,8 +415,14 @@
       box.className = 'equip-slot';
       const title = document.createElement('div');
       title.className = 'slot-title';
-      title.textContent = SLOT_EMOJI[slot] + ' ' + SLOT_NAMES[slot];
+      title.textContent = SLOT_NAMES[slot];
       box.appendChild(title);
+
+      const icon = document.createElement('span');
+      icon.className = 'slot-emoji';
+      icon.textContent = SLOT_EMOJI[slot];
+      box.appendChild(icon);
+
       const body = document.createElement('div');
       if (item) {
         body.className = 'tier-' + item.tier;
@@ -391,7 +433,7 @@
         box.appendChild(stats);
       } else {
         body.textContent = 'пусто';
-        body.style.color = '#7d6f95';
+        body.style.color = '#5f4e2e';
         box.appendChild(body);
       }
       equipmentSlots.appendChild(box);
