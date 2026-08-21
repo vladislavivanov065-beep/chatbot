@@ -1,8 +1,16 @@
-"""Shared SQLite database for the whole site (accounts + the dice game's rooms)."""
+"""Shared SQLite database for the whole site (accounts + the dice game's rooms).
+
+DATA_DIR should point at a persistent volume in production (e.g. Railway) —
+without one, the database lives on the container's ephemeral filesystem and
+every redeploy wipes all accounts. Defaults to this file's own directory so
+local development needs no extra setup.
+"""
 import os
 import sqlite3
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site.db")
+DATA_DIR = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "site.db")
 
 
 def get_db():

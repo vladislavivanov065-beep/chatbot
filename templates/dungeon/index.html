@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Подземелье</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dungeon/style.css') }}">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <h1>⚔️ Подземелье</h1>
+      <a href="{{ url_for('dungeon.index') }}">← К лобби подземелья</a>
+    </header>
+
+    <main id="layout">
+      <div class="card-panel" id="waiting-card">
+        <div class="status-line" id="waiting-status"></div>
+        <div class="players-list" id="waiting-players"></div>
+        <div id="class-picker" class="class-picker"></div>
+        <div class="action-bar">
+          <button id="join-btn" class="btn">Присоединиться к отряду</button>
+          <button id="start-btn" class="btn btn-ghost" hidden>Начать забег</button>
+        </div>
+      </div>
+
+      <div class="card-panel" id="finished-card" hidden>
+        <div class="finished-banner" id="finished-banner"></div>
+        <div id="finished-log"></div>
+      </div>
+
+      <div id="game-layout" hidden>
+        <div class="card-panel" id="hud-panel">
+          <div id="hud-players"></div>
+          <div class="status-line" id="hud-status"></div>
+        </div>
+
+        <div class="card-panel" id="map-panel">
+          <div id="map-wrap">
+            <div id="map-grid"></div>
+          </div>
+          <p class="hint-text" id="hint-text"></p>
+          <div class="action-bar" id="ability-bar" hidden>
+            <button id="mode-attack-btn" class="btn btn-small">⚔️ Атака</button>
+            <button id="mode-heal-btn" class="btn btn-small btn-ghost" hidden>✨ Лечение</button>
+            <button id="confirm-attack-btn" class="btn btn-small" hidden>Подтвердить атаку</button>
+          </div>
+          <div class="action-bar">
+            <button id="shop-open-btn" class="btn btn-small" hidden>🏪 Открыть магазин</button>
+          </div>
+        </div>
+
+        <div class="card-panel" id="gear-panel">
+          <h3 style="margin-top:0;">Экипировка и инвентарь</h3>
+          <div id="equipment-slots"></div>
+          <div id="inventory-list"></div>
+        </div>
+
+        <div class="card-panel" id="log-panel">
+          <h3 style="margin-top:0;">Журнал</h3>
+          <div id="event-log"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="shop-overlay" hidden>
+    <div id="shop-modal">
+      <h3>🏪 Магазин</h3>
+      <p>Золото отряда: <b id="shop-gold">0</b></p>
+      <div id="shop-items"></div>
+      <button id="shop-close-btn" class="btn btn-ghost">Закрыть</button>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+  <script>
+    window.PLAYER_TOKEN = {{ token|tojson }};
+    window.LOBBY_ID = {{ lobby_id|tojson }};
+    window.IS_CREATOR = {{ is_creator|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='dungeon/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Подземелье — лобби</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card lobby-card">
+    <div class="lobby-topbar">
+      <h1 style="margin:0;">⚔️ Подземелье</h1>
+      <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+    </div>
+    <p class="subtitle">Кооперативный пошаговый данжен-кроулер, 1-4 игрока</p>
+
+    {% if lobbies %}
+      <table class="lobby-table">
+        <thead>
+          <tr>
+            <th>Создатель</th>
+            <th>Карта</th>
+            <th>Отряд</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lobbies %}
+          <tr>
+            <td>{{ l.creator }}</td>
+            <td>{{ l.theme_name }}</td>
+            <td>{{ l.players }} / {{ l.max_players }}</td>
+            <td><span class="lobby-status {{ l.status }}">
+              {{ {"waiting": "сбор отряда", "playing": "в подземелье", "finished": "забег окончен"}[l.status] }}
+            </span></td>
+            <td>
+              <a href="{{ url_for('dungeon.lobby', lobby_id=l.lobby_id) }}">
+                <button type="button" class="btn btn-primary btn-small">Войти</button>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="lobby-empty">Активных отрядов пока нет — соберите свой!</p>
+    {% endif %}
+
+    <div class="lobby-create-form">
+      <form method="POST" action="{{ url_for('dungeon.create') }}">
+        <h3 style="margin-top:0;">Создать лобби</h3>
+
+        <select name="theme" required>
+          {% for key, t in themes.items() %}
+            <option value="{{ key }}">{{ t.name }}</option>
+          {% endfor %}
+        </select>
+
+        <select name="max_players" required>
+          <option value="1">1 игрок (соло)</option>
+          <option value="2">2 игрока</option>
+          <option value="3">3 игрока</option>
+          <option value="4" selected>4 игрока</option>
+        </select>
+
+        <button type="submit" class="btn">Создать</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
