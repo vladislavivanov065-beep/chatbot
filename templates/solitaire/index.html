@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Пасьянс</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='solitaire/style.css') }}">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <h1>🂡 Пасьянс (Косынка)</h1>
+      <a href="{{ url_for('lobby') }}">← В лобби</a>
+    </header>
+
+    <main id="layout">
+      <div class="action-bar">
+        <button id="new-game-btn" class="btn">Новая игра</button>
+        <span class="hint-text" id="hint-text"></span>
+      </div>
+
+      <div id="top-row">
+        <div id="stock-waste">
+          <div id="stock-pile" class="pile"></div>
+          <div id="waste-pile" class="pile"></div>
+        </div>
+        <div id="foundations">
+          <div class="pile foundation-pile" data-suit="S"></div>
+          <div class="pile foundation-pile" data-suit="C"></div>
+          <div class="pile foundation-pile" data-suit="H"></div>
+          <div class="pile foundation-pile" data-suit="D"></div>
+        </div>
+      </div>
+
+      <div id="tableau"></div>
+    </main>
+
+    <div id="win-banner" hidden>🎉 Пасьянс сошёлся! 🎉</div>
+  </div>
+
+  <script src="{{ url_for('static', filename='solitaire/main.js') }}"></script>
+</body>
+</html>
