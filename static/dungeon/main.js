@@ -237,6 +237,35 @@
     });
   }
 
+  function createFigure(emoji, badgeClass, hpFrac) {
+    const figure = document.createElement('div');
+    figure.className = 'figure';
+
+    const shadow = document.createElement('div');
+    shadow.className = 'figure-shadow';
+    figure.appendChild(shadow);
+
+    const badge = document.createElement('div');
+    badge.className = 'figure-badge ' + badgeClass;
+    const em = document.createElement('span');
+    em.className = 'figure-emoji';
+    em.textContent = emoji;
+    badge.appendChild(em);
+    figure.appendChild(badge);
+
+    if (hpFrac !== undefined && hpFrac !== null) {
+      const hpWrap = document.createElement('div');
+      hpWrap.className = 'figure-hp';
+      const hpFill = document.createElement('div');
+      hpFill.className = 'figure-hp-fill';
+      hpFill.style.width = Math.max(0, Math.round(hpFrac * 100)) + '%';
+      hpWrap.appendChild(hpFill);
+      badge.appendChild(hpWrap);
+    }
+
+    return figure;
+  }
+
   function renderMap(me) {
     const s = lastState;
     const colors = THEME_COLORS[s.theme] || THEME_COLORS.forest;
@@ -275,20 +304,16 @@
         const here = playersAt[key];
 
         if (enemy) {
-          tile.textContent = enemy.emoji;
-          const hpWrap = document.createElement('div');
-          hpWrap.className = 'mini-hp';
-          const hpFill = document.createElement('div');
-          hpFill.className = 'mini-hp-fill';
-          hpFill.style.width = Math.max(0, Math.round((100 * enemy.hp) / enemy.max_hp)) + '%';
-          hpWrap.appendChild(hpFill);
-          tile.appendChild(hpWrap);
+          const badgeClass = 'enemy' + (enemy.is_boss ? ' boss' : '');
+          tile.appendChild(createFigure(enemy.emoji, badgeClass, enemy.hp / enemy.max_hp));
           tile.title = `${enemy.name} (${enemy.hp}/${enemy.max_hp})`;
         } else if (here && here.length) {
           const anyDowned = here.some((p) => p.status === 'downed');
-          tile.textContent = anyDowned ? '💀' : '🧑';
+          const isMe = here.some((p) => p.token === token);
+          const badgeClass = 'player' + (isMe ? ' self' : '') + (anyDowned ? ' downed' : '');
+          tile.appendChild(createFigure(anyDowned ? '💀' : '🧑', badgeClass));
           tile.title = here.map((p) => `${p.token} (${p.status})`).join(', ');
-          if (here.some((p) => p.token === token)) tile.classList.add('player-here');
+          if (isMe) tile.classList.add('player-here');
         } else if (itemAt[key]) {
           tile.textContent = '✨';
           tile.title = itemAt[key].name;
