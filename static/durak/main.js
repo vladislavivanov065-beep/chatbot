@@ -15,6 +15,7 @@
   const gameCard = document.getElementById('game-card');
   const statusLine = document.getElementById('status-line');
   const opponentsRow = document.getElementById('opponents-row');
+  const talonArea = document.getElementById('talon-area');
   const tableArea = document.getElementById('table-area');
   const actionBar = document.getElementById('action-bar');
   const hintText = document.getElementById('hint-text');
@@ -83,13 +84,21 @@
       return el;
     }
     if (card.suit === '♥' || card.suit === '♦') el.classList.add('red');
-    const rankEl = document.createElement('div');
-    rankEl.textContent = card.rank;
+    // corner-index layout (rank+suit top-left and bottom-right, big suit
+    // centered) so a beaten card still reads correctly through the sliver
+    // left exposed when the covering card is laid diagonally over it.
+    const topEl = document.createElement('div');
+    topEl.className = 'corner top';
+    topEl.textContent = card.rank + card.suit;
     const suitEl = document.createElement('div');
-    suitEl.className = 'suit';
+    suitEl.className = 'suit-mid';
     suitEl.textContent = card.suit;
-    el.appendChild(rankEl);
+    const bottomEl = document.createElement('div');
+    bottomEl.className = 'corner bottom';
+    bottomEl.textContent = card.rank + card.suit;
+    el.appendChild(topEl);
     el.appendChild(suitEl);
+    el.appendChild(bottomEl);
     return el;
   }
 
@@ -141,12 +150,12 @@
     const isDefender = s.defender === token;
 
     statusLine.innerHTML =
-      `Козырь: ${cardHtml(s.trump_card)} · ` +
-      `В колоде: <b>${s.talon_count}</b> · В отбое: <b>${s.discard_count}</b><br>` +
+      `В отбое: <b>${s.discard_count}</b><br>` +
       `Атакует: <b>${s.attacker}</b>${isAttacker ? ' (вы)' : ''} · ` +
       `Защищается: <b>${s.defender}</b>${isDefender ? ' (вы)' : ''}`;
 
     renderOpponents();
+    renderTalon();
     renderTable(isDefender);
     renderActionBar(isAttacker, isDefender);
     renderHand(isAttacker, isDefender);
@@ -187,10 +196,27 @@
       });
   }
 
-  function cardHtml(card) {
-    if (!card) return '?';
-    const red = card.suit === '♥' || card.suit === '♦';
-    return `<span style="${red ? 'color:#ffb4b0' : ''}">${card.rank}${card.suit}</span>`;
+  function renderTalon() {
+    talonArea.innerHTML = '';
+    const s = lastState;
+    if (!s.trump_card) return;
+
+    const stack = document.createElement('div');
+    stack.className = 'talon-stack';
+
+    const trumpEl = cardEl(s.trump_card, 'trump-marker');
+    stack.appendChild(trumpEl);
+
+    if (s.talon_count > 0) {
+      stack.appendChild(cardEl(null, 'talon-deck'));
+    }
+
+    const countEl = document.createElement('div');
+    countEl.className = 'talon-count';
+    countEl.textContent = `В колоде: ${s.talon_count}`;
+    stack.appendChild(countEl);
+
+    talonArea.appendChild(stack);
   }
 
   function renderTable(isDefender) {
