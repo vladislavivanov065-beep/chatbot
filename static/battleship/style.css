@@ -119,6 +119,10 @@ body {
   justify-content: center;
 }
 
+#opponent-boards {
+  display: contents;
+}
+
 .board-panel {
   display: flex;
   flex-direction: column;
@@ -167,12 +171,62 @@ body {
 }
 
 .bs-cell.ship {
-  background: linear-gradient(160deg, #6b7686, #3a424e);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  background: linear-gradient(160deg, #9aa6b6, #4a5561 55%, #333b46);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), inset 0 -2px 3px rgba(0, 0, 0, 0.35);
 }
 
 .bs-cell.ship.own-placed {
   cursor: pointer;
+}
+
+/* --- ship hull segments: draw connected boats instead of flat squares --- */
+
+.bs-cell.seg-h-mid,
+.bs-cell.seg-v-mid {
+  border-radius: 2px;
+}
+
+.bs-cell.seg-h-start {
+  clip-path: polygon(0% 50%, 38% 8%, 100% 8%, 100% 92%, 38% 92%);
+}
+
+.bs-cell.seg-h-end {
+  clip-path: polygon(100% 50%, 62% 8%, 0% 8%, 0% 92%, 62% 92%);
+}
+
+.bs-cell.seg-v-start {
+  clip-path: polygon(50% 0%, 92% 38%, 92% 100%, 8% 100%, 8% 38%);
+}
+
+.bs-cell.seg-v-end {
+  clip-path: polygon(50% 100%, 92% 62%, 92% 0%, 8% 0%, 8% 62%);
+}
+
+.bs-cell.seg-solo {
+  border-radius: 45%;
+}
+
+.bs-cell.seg-h-start,
+.bs-cell.seg-h-end,
+.bs-cell.seg-h-mid,
+.bs-cell.seg-v-start,
+.bs-cell.seg-v-end,
+.bs-cell.seg-v-mid,
+.bs-cell.seg-solo {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3), inset 0 -3px 4px rgba(0, 0, 0, 0.4);
+}
+
+.bs-cell.seg-sunk {
+  filter: saturate(0.7) brightness(0.85);
+}
+
+/* dots ringing a sunk ship — those cells are guaranteed empty, ships never touch */
+.bs-cell.border-dot::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(159, 208, 232, 0.55);
 }
 
 .bs-cell.miss::after {
@@ -262,39 +316,6 @@ body {
 
 .ready-row.ready {
   color: #7ee08c;
-}
-
-/* --- targets tabs --- */
-
-#targets-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.target-tab {
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  border: 2px solid transparent;
-}
-
-.target-tab.selected {
-  border-color: #6fd0f0;
-  background: rgba(111, 208, 240, 0.2);
-}
-
-.target-tab.eliminated {
-  opacity: 0.45;
-  text-decoration: line-through;
-}
-
-.target-tab.my-turn-target {
-  box-shadow: 0 0 8px rgba(111, 240, 150, 0.6);
 }
 
 /* --- log --- */
