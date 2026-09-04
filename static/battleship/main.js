@@ -130,6 +130,34 @@
     return grid;
   }
 
+  // Maps "x,y" -> a CSS segment class (bow/stern/mid/solo, oriented) so ships
+  // render as connected boat hulls instead of plain squares.
+  function shipShapeMap(ships) {
+    const map = {};
+    (ships || []).forEach((s) => {
+      const cells = s.cells;
+      const n = cells.length;
+      const horizontal = n > 1 ? cells[0][1] === cells[1][1] : true;
+      cells.forEach(([x, y], i) => {
+        let cls;
+        if (n === 1) cls = 'seg-solo';
+        else if (i === 0) cls = horizontal ? 'seg-h-start' : 'seg-v-start';
+        else if (i === n - 1) cls = horizontal ? 'seg-h-end' : 'seg-v-end';
+        else cls = horizontal ? 'seg-h-mid' : 'seg-v-mid';
+        map[x + ',' + y] = cls;
+      });
+    });
+    return map;
+  }
+
+  function shipSunkCellSet(ships) {
+    const set = new Set();
+    (ships || []).forEach((s) => {
+      if (s.sunk) s.cells.forEach(([x, y]) => set.add(x + ',' + y));
+    });
+    return set;
+  }
+
   function wouldFit(grid, cells) {
     for (const [cx, cy] of cells) {
       if (cx < 0 || cx >= 10 || cy < 0 || cy >= 10) return false;
@@ -193,6 +221,7 @@
     const grid = buildGridFromShips(lastState.my_ships);
     const cellToShip = {};
     (lastState.my_ships || []).forEach((s) => s.cells.forEach(([x, y]) => { cellToShip[x + ',' + y] = s.id; }));
+    const shapeMap = shipShapeMap(lastState.my_ships);
 
     for (let y = 0; y < 10; y++) {
       ownCellEls[y] = [];
@@ -202,6 +231,7 @@
         const key = x + ',' + y;
         if (grid[y][x] === 'ship') {
           cell.classList.add('ship', 'own-placed');
+          if (shapeMap[key]) cell.classList.add(shapeMap[key]);
           cell.addEventListener('click', () => submit('remove_ship', { ship_id: cellToShip[key] }));
         } else if (heldShipSize && !lastState.ready) {
           cell.addEventListener('mouseenter', () => showGhost(x, y));
@@ -270,10 +300,17 @@
   function renderMyBoard() {
     myBoardGrid.innerHTML = '';
     const grid = lastState.my_board;
+    const shapeMap = shipShapeMap(lastState.my_ships);
+    const sunkCells = shipSunkCellSet(lastState.my_ships);
     for (let y = 0; y < 10; y++) {
       for (let x = 0; x < 10; x++) {
         const cell = document.createElement('div');
+        const key = x + ',' + y;
         cell.className = 'bs-cell ' + grid[y][x];
+        if (shapeMap[key]) {
+          cell.classList.add(shapeMap[key]);
+          if (sunkCells.has(key)) cell.classList.add('seg-sunk');
+        }
         myBoardGrid.appendChild(cell);
       }
     }
@@ -287,11 +324,16 @@
     if (!opp) return;
 
     const canFire = !!lastState.is_my_turn && opp.alive;
+    const shapeMap = shipShapeMap(opp.sunk_ships);
     for (let y = 0; y < 10; y++) {
       for (let x = 0; x < 10; x++) {
         const cell = document.createElement('div');
         const val = opp.grid[y][x];
         cell.className = 'bs-cell ' + val;
+        if (val === 'sunk') {
+          const key = x + ',' + y;
+          if (shapeMap[key]) cell.classList.add(shapeMap[key]);
+        }
         if (canFire && val === 'unknown') {
           cell.classList.add('targetable');
           cell.addEventListener('click', () => submit('fire', { target: selectedTarget, x, y }));
