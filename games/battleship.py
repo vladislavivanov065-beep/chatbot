@@ -27,9 +27,9 @@ def new_lobby_id():
     return uuid.uuid4().hex[:8]
 
 
-def new_lobby(creator, max_players):
+def new_lobby(creator, max_players, fire_mode):
     return {
-        "game": BattleshipGame(max_players=max_players),
+        "game": BattleshipGame(max_players=max_players, fire_mode=fire_mode),
         "creator": creator,
         "created_at": time.time(),
         "token_to_sid": {},
@@ -58,6 +58,7 @@ def index():
                 "creator": lobby["creator"],
                 "players": len(game.seat_order),
                 "max_players": game.max_players,
+                "fire_mode": game.fire_mode,
                 "status": "finished" if game.finished else ("playing" if game.phase != "waiting" else "waiting"),
             }
         )
@@ -72,8 +73,11 @@ def create():
         max_players = int(request.form.get("max_players", 4))
     except ValueError:
         max_players = 4
+    fire_mode = request.form.get("fire_mode", "all")
+    if fire_mode not in ("all", "single"):
+        fire_mode = "all"
     lobby_id = new_lobby_id()
-    lobbies[lobby_id] = new_lobby(session["user"], max(MIN_PLAYERS, min(max_players, MAX_PLAYERS)))
+    lobbies[lobby_id] = new_lobby(session["user"], max(MIN_PLAYERS, min(max_players, MAX_PLAYERS)), fire_mode)
     return redirect(url_for("battleship.lobby", lobby_id=lobby_id))
 
 
@@ -203,6 +207,7 @@ def on_fire(data):
             token,
             int(payload.get("x", -1)),
             int(payload.get("y", -1)),
+            payload.get("target"),
         )
 
     _dispatch(data, action)

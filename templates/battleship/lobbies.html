@@ -27,7 +27,7 @@
         <tbody>
           {% for l in lobbies %}
           <tr>
-            <td>{{ l.creator }}</td>
+            <td>{{ l.creator }} {% if l.fire_mode == 'single' %}<span title="По одному полю за раз">🎯</span>{% endif %}</td>
             <td>{{ l.players }} / {{ l.max_players }}</td>
             <td><span class="lobby-status {{ l.status }}">
               {{ {"waiting": "сбор игроков", "playing": "бой идёт", "finished": "бой окончен"}[l.status] }}
@@ -53,6 +53,11 @@
           <option value="2">2 игрока</option>
           <option value="3">3 игрока</option>
           <option value="4" selected>4 игрока</option>
+        </select>
+
+        <select name="fire_mode" required>
+          <option value="all" selected>Стрелять по всем полям сразу</option>
+          <option value="single">Стрелять по одному полю за раз</option>
         </select>
 
         <button type="submit" class="btn">Создать</button>

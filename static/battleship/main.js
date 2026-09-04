@@ -290,10 +290,13 @@
     const s = lastState;
     const opponents = s.opponents || {};
     const opponentCount = Object.keys(opponents).length;
+    const allMode = s.fire_mode !== 'single';
     if (s.is_my_turn) {
-      battleStatus.innerHTML = opponentCount > 1
+      battleStatus.innerHTML = allMode && opponentCount > 1
         ? '<b>Ваш ход! Кликните по клетке — выстрел ударит по всем полям соперников сразу.</b>'
-        : '<b>Ваш ход! Выберите клетку.</b>';
+        : (opponentCount > 1
+          ? '<b>Ваш ход! Кликните по клетке на поле нужного соперника.</b>'
+          : '<b>Ваш ход! Выберите клетку.</b>');
     } else {
       battleStatus.innerHTML = `Ход игрока: <b>${s.turn_token}</b>`;
     }
@@ -361,7 +364,7 @@
           }
           if (canFire && val === 'unknown') {
             cell.classList.add('targetable');
-            cell.addEventListener('click', () => submit('fire', { x, y }));
+            cell.addEventListener('click', () => submit('fire', { x, y, target: t }));
           }
           grid.appendChild(cell);
         }
@@ -370,8 +373,13 @@
       opponentBoardsEl.appendChild(panel);
     });
 
+    const allMode = lastState.fire_mode !== 'single';
     battleHint.textContent = myTurn
-      ? (anyAlive ? 'Кликните по любой клетке на любом поле — выстрел ударит все живые поля соперников одновременно.' : '')
+      ? (anyAlive
+        ? (allMode
+          ? 'Кликните по любой клетке на любом поле — выстрел ударит все живые поля соперников одновременно.'
+          : 'Кликните по клетке на поле того соперника, по которому хотите выстрелить.')
+        : '')
       : 'Дождитесь своего хода.';
   }
 

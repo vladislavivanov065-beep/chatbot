@@ -2,13 +2,17 @@
 
 No Flask/socket dependencies here. Classic Russian ruleset: 10x10 board,
 the standard 1x4-deck / 2x3-deck / 3x2-deck / 4x1-deck ship set, ships
-may not touch each other (even diagonally). Turn order is round-robin —
-on your turn you pick a single cell and it is fired at that same (x, y)
-on every other living player's board at once (with 2 players this is
-just a regular single-target shot). Landing at least one hit anywhere
-keeps the turn with the same shooter, same as classic single-player
-Battleship; the turn only passes to the next living player when every
-board it was fired at comes back a miss.
+may not touch each other (even diagonally). Turn order is round-robin.
+The lobby creator picks a fire mode for the whole game:
+  - "all": on your turn you pick a single cell and it is fired at that
+    same (x, y) on every other living player's board at once.
+  - "single": on your turn you pick one specific living opponent and
+    fire a single shot at their board only, like classic 1v1 Battleship.
+With only one living opponent (2-player games) both modes behave the
+same. Landing at least one hit keeps the turn with the same shooter;
+the turn only passes to the next living player once every board it was
+fired at (one board in "single" mode, all of them in "all" mode) comes
+back a miss.
 """
 import random
 import uuid
@@ -17,6 +21,7 @@ BOARD_SIZE = 10
 SHIP_SIZES = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]
 MIN_PLAYERS = 2
 MAX_PLAYERS = 4
+FIRE_MODES = ("all", "single")
 
 
 def _new_id():
@@ -34,8 +39,9 @@ def _in_bounds(x, y):
 
 
 class BattleshipGame:
-    def __init__(self, max_players=4):
+    def __init__(self, max_players=4, fire_mode="all"):
         self.max_players = max(MIN_PLAYERS, min(max_players, MAX_PLAYERS))
+        self.fire_mode = fire_mode if fire_mode in FIRE_MODES else "all"
 
         self.seat_order = []
         self.phase = "waiting"   # waiting | placing | playing | finished
@@ -183,14 +189,25 @@ class BattleshipGame:
     def alive_tokens(self):
         return [t for t in self.turn_order if self.players[t]["alive"]]
 
-    def fire(self, token, x, y):
+    def fire(self, token, x, y, target_token=None):
         if self.phase != "playing" or self.finished:
             return False, "Бой ещё не идёт"
         if not self.turn_order or self.turn_order[self.current_idx] != token:
             return False, "Сейчас не ваш ход"
         if not _in_bounds(x, y):
             return False, "Клетка вне поля"
-        targets = [t for t in self.seat_order if t != token and self.players[t]["alive"]]
+
+        if self.fire_mode == "single":
+            if not target_token:
+                return False, "Выберите цель"
+            if target_token == token:
+                return False, "Нельзя стрелять по своему полю"
+            picked = self.players.get(target_token)
+            if not picked or not picked["alive"]:
+                return False, "Недоступная цель"
+            targets = [target_token]
+        else:
+            targets = [t for t in self.seat_order if t != token and self.players[t]["alive"]]
         if not targets:
             return False, "Нет доступных целей"
         # A given target's history is missing every cell fired during that
@@ -225,14 +242,21 @@ class BattleshipGame:
             else:
                 hit_tokens.append(target_token)
 
+        single_target = len(fresh_targets) == 1
         if hit_tokens:
-            self._log(f"{token} попал по полю: {', '.join(hit_tokens)}.")
+            if single_target:
+                self._log(f"{token} попал по полю {hit_tokens[0]}.")
+            else:
+                self._log(f"{token} попал по полю: {', '.join(hit_tokens)}.")
         for target_token, size in sunk_events:
             self._log(f"{token} потопил корабль игрока {target_token} ({size} палуб(а)).")
         for target_token in eliminated:
             self._log(f"{target_token} выбывает из боя!")
         if not any_hit:
-            self._log(f"{token} промахнулся по всем полям.")
+            if single_target:
+                self._log(f"{token} промахнулся по полю {fresh_targets[0]}.")
+            else:
+                self._log(f"{token} промахнулся по всем полям.")
         elif not self.finished:
             self._log(f"Ход снова {token}.")
 
@@ -324,6 +348,7 @@ class BattleshipGame:
             "finished": self.finished,
             "winner": self.winner,
             "max_players": self.max_players,
+            "fire_mode": self.fire_mode,
             "seats": list(self.seat_order),
             "log": self.log[-10:],
         }
