@@ -205,6 +205,14 @@ def on_buy_item(data):
     _dispatch(data, action)
 
 
+@socketio.on("reroll_shop", namespace=NAMESPACE)
+def on_reroll_shop(data):
+    def action(game, token, payload):
+        return game.reroll_shop(token)
+
+    _dispatch(data, action)
+
+
 @socketio.on("give_item", namespace=NAMESPACE)
 def on_give_item(data):
     def action(game, token, payload):

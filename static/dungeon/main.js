@@ -44,6 +44,7 @@
   const shopOverlay = document.getElementById('shop-overlay');
   const shopGold = document.getElementById('shop-gold');
   const shopItems = document.getElementById('shop-items');
+  const shopRerollBtn = document.getElementById('shop-reroll-btn');
   const shopCloseBtn = document.getElementById('shop-close-btn');
   const shopOpenBtn = document.getElementById('shop-open-btn');
 
@@ -163,6 +164,7 @@
 
     hudStatus.innerHTML =
       `<div class="resource-bar">` +
+      `<span class="resource-badge"><span class="resource-icon">🏰</span>Этаж ${s.floor}</span>` +
       `<span class="resource-badge"><span class="resource-icon">🗺️</span>${s.theme_name}</span>` +
       `<span class="resource-badge"><span class="resource-icon">⏱️</span>Раунд ${s.round}</span>` +
       `<span class="resource-badge gold"><span class="resource-icon">🪙</span>${s.gold}</span>` +
@@ -546,6 +548,10 @@
       row.appendChild(buyBtn);
       shopItems.appendChild(row);
     });
+
+    const rerollPrice = s.shop_reroll_price;
+    shopRerollBtn.textContent = `Обновить ассортимент 🎲 (${rerollPrice}💰)`;
+    shopRerollBtn.disabled = rerollPrice === null || s.gold < rerollPrice;
   }
 
   joinBtn.addEventListener('click', () => {
@@ -583,5 +589,9 @@
     shopOpen = true;
     const me = lastState && lastState.players.find((p) => p.token === token);
     renderShop(me);
+  });
+
+  shopRerollBtn.addEventListener('click', () => {
+    socket.emit('reroll_shop', { token, lobby_id: lobbyId });
   });
 })();

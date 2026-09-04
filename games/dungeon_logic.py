@@ -8,6 +8,15 @@ the in-app rules summary for the MVP simplifications made below
 (cardinal-only movement, ranged attacks are plain Manhattan-distance
 checks with no line-of-sight/wall occlusion, shared team gold,
 real-time revival window).
+
+Beating a floor's boss doesn't end the run: the party keeps their
+character, equipment and gold, and a brand new floor is generated
+(different theme, tougher enemies scaled by FLOOR_SCALE) — the run only
+truly ends if the whole party dies. Floor transitions are deferred to
+the end of round resolution (see _resolve_round) rather than happening
+mid-loop inside _kill_enemy, so any other players' actions queued for
+that same round aren't applied against a map that's already been torn
+down and regenerated under them.
 """
 import random
 import time
@@ -25,6 +34,7 @@ BASE_HP = 30
 BASE_ATTACK = 7
 BASE_DEFENSE = 3
 DEPTH_SCALE = 0.9
+FLOOR_SCALE = 0.45   # extra enemy stat multiplier per floor beyond the first
 
 COMBAT_RADIUS = 3   # any enemy this close to any ally means the party is "in combat"
 MAGE_MAX_TARGETS = 3
@@ -172,8 +182,11 @@ class DungeonGame:
         self.floor_items = {}   # (x, y) -> item dict
         self.shop_tile = None
         self.shop_stock = []
+        self.shop_depth = 0   # depth fraction the current shop's items are rolled at
         self.gold = 0
 
+        self.floor = 1
+        self.floor_cleared = False   # set mid-round when the boss dies; consumed at round end
         self.round = 0
         self.pending_actions = {}   # token -> action dict
         self.log = []               # recent event strings, newest last
@@ -221,6 +234,22 @@ class DungeonGame:
             player["hp"] = max_hp
             self.players[token] = player
 
+        self._populate_floor()
+
+        self.gold = 0
+        self.started = True
+        self.round = 1
+        self._log(f"Отряд входит в подземелье ({THEMES[self.theme]['name']}).")
+        return True
+
+    def _populate_floor(self):
+        """Spawns this floor's enemies, boss and shop into the already-generated
+        self.grid/self.rooms. Used both by start() and by _advance_floor()."""
+        self.enemies = []
+        self.floor_items = {}
+        self.shop_tile = None
+        self.shop_stock = []
+
         for idx, room in enumerate(self.rooms[1:], start=1):
             depth = idx / (len(self.rooms) - 1)
             is_boss_room = idx == len(self.rooms) - 1
@@ -243,23 +272,46 @@ class DungeonGame:
             cells = [c for c in cells if not self._enemy_at(*c)]
             if cells:
                 self.shop_tile = self.rng.choice(cells)
-                shop_depth = shop_room_idx / (len(self.rooms) - 1)
+                self.shop_depth = shop_room_idx / (len(self.rooms) - 1)
                 self.shop_stock = [
-                    _roll_item(self.rng.choice(SLOTS), shop_depth, self.rng) for _ in range(3)
+                    _roll_item(self.rng.choice(SLOTS), self.shop_depth, self.rng) for _ in range(3)
                 ]
 
-        self.gold = 0
-        self.started = True
+    def _advance_floor(self):
+        """Called once the current floor's boss is dead: keeps the party's
+        character, equipment and gold, and drops them into a freshly
+        generated floor with a different theme and tougher enemies."""
+        self.floor += 1
+        other_themes = [t for t in THEMES if t != self.theme]
+        self.theme = self.rng.choice(other_themes) if other_themes else self.theme
+
+        self.grid, self.rooms = _generate_map(self.rng)
+        sx, sy = _room_center(self.rooms[0])
+
+        for player in self.players.values():
+            if player["status"] == "dead":
+                continue
+            player["x"], player["y"] = sx, sy
+            player["status"] = "alive"
+            player["downed_at"] = None
+            _, _, max_hp = self._player_stats(player)
+            player["max_hp"] = max_hp
+            player["hp"] = max_hp   # full heal — a cleared floor is a checkpoint
+
+        self._populate_floor()
+
         self.round = 1
-        self._log(f"Отряд входит в подземелье ({THEMES[self.theme]['name']}).")
-        return True
+        self.pending_actions = {}
+        self._log(f"Отряд спускается на этаж {self.floor} ({THEMES[self.theme]['name']}). Враги стали сильнее!")
 
     def _room_floor_cells(self, room):
         x, y, w, h = room
         return [(xx, yy) for yy in range(y, y + h) for xx in range(x, x + w)]
 
     def _spawn_enemy(self, type_key, base, x, y, depth, is_boss):
-        mult = 1.0 if is_boss else (1 + depth * DEPTH_SCALE)
+        floor_mult = 1 + (self.floor - 1) * FLOOR_SCALE
+        base_mult = 1.0 if is_boss else (1 + depth * DEPTH_SCALE)
+        mult = base_mult * floor_mult
         hp = round(base["hp"] * mult)
         self.enemies.append(
             {
@@ -354,9 +406,20 @@ class DungeonGame:
             if not action or not player or player["status"] != "alive":
                 continue
             self._apply_player_action(player, action)
-            if self.finished:
-                self.pending_actions = {}
-                return
+            if self.finished or self.floor_cleared:
+                # stop processing the rest of this round's queued actions —
+                # they were aimed at a map that either doesn't matter anymore
+                # (party wiped) or is about to be replaced by the next floor
+                break
+
+        if self.floor_cleared:
+            self.floor_cleared = False
+            self.pending_actions = {}
+            self._advance_floor()
+            return
+        if self.finished:
+            self.pending_actions = {}
+            return
 
         self._enemy_turn()
         self._regen_out_of_combat()
@@ -430,8 +493,8 @@ class DungeonGame:
                 enemy["hp"] -= dmg
                 self._log(f"{player['token']} бьёт {enemy['name']} на {dmg}.")
                 if enemy["hp"] <= 0:
-                    self._kill_enemy(enemy)
-                    if self.finished:
+                    self._kill_enemy(enemy, killer=player)
+                    if self.finished or self.floor_cleared:
                         return
             # no immediate counter-attack here: a surviving enemy still gets
             # its one action this round, during the enemy phase below —
@@ -467,20 +530,33 @@ class DungeonGame:
             ally["downed_at"] = None
             self._log(f"{player['token']} воскресил {target_token}!")
 
-    def _kill_enemy(self, enemy):
+    def _kill_enemy(self, enemy, killer=None):
         self.enemies.remove(enemy)
         self._log(f"{enemy['name']} повержен!")
         gold_reward = 5 + round(enemy.get("depth", 0) * 15) + (40 if enemy["is_boss"] else 0)
         self.gold += gold_reward
-        drop_chance = 1.0 if enemy["is_boss"] else 0.5
+
+        if enemy["is_boss"]:
+            # the floor (and anything dropped on it) is wiped the instant the
+            # floor transition runs, so hand the guaranteed boss trophy
+            # straight to the killer instead of dropping it on a tile nobody
+            # will ever get to visit.
+            item = _roll_item(self.rng.choice(SLOTS), enemy.get("depth", 0), self.rng)
+            if killer and len(killer["inventory"]) < INVENTORY_CAP:
+                killer["inventory"].append(item)
+                self._log(f"{killer['token']} получает трофей босса: {item['name']}.")
+            else:
+                self.gold += item["price"]
+                self._log(f"Трофей босса продан за {item['price']} золота (инвентарь полон).")
+            self._log(f"Босс повержен! Этаж {self.floor} пройден.")
+            self.floor_cleared = True
+            return
+
+        drop_chance = 0.5
         if self.rng.random() < drop_chance and (enemy["x"], enemy["y"]) not in self.floor_items:
             slot = self.rng.choice(SLOTS)
             item = _roll_item(slot, enemy.get("depth", 0), self.rng)
             self.floor_items[(enemy["x"], enemy["y"])] = item
-        if enemy["is_boss"]:
-            self.finished = True
-            self.victory = True
-            self._log("Босс повержен! Отряд побеждает.")
 
     def _check_player_downed(self, player):
         if player["hp"] <= 0 and player["status"] == "alive":
@@ -616,6 +692,26 @@ class DungeonGame:
         self.gold -= item["price"]
         self.shop_stock.remove(item)
         player["inventory"].append(item)
+        # keep the shop stocked: a fresh item takes the sold one's place
+        self.shop_stock.append(_roll_item(self.rng.choice(SLOTS), self.shop_depth, self.rng))
+        return True, None
+
+    def _reroll_price(self):
+        return max(10, round(12 * (1 + self.shop_depth * 1.1)))
+
+    def reroll_shop(self, token):
+        player = self.players.get(token)
+        if not player or player["status"] != "alive":
+            return False, "Недоступно"
+        if not self.shop_tile or (player["x"], player["y"]) != tuple(self.shop_tile):
+            return False, "Вы не в магазине"
+        price = self._reroll_price()
+        if self.gold < price:
+            return False, "Недостаточно золота"
+        self.gold -= price
+        count = len(self.shop_stock) or 3
+        self.shop_stock = [_roll_item(self.rng.choice(SLOTS), self.shop_depth, self.rng) for _ in range(count)]
+        self._log(f"{token} обновляет ассортимент магазина за {price} золота.")
         return True, None
 
     # ---------- disconnect handling ----------
@@ -695,6 +791,7 @@ class DungeonGame:
             "victory": self.victory,
             "theme": self.theme,
             "theme_name": THEMES[self.theme]["name"],
+            "floor": self.floor,
             "width": WIDTH,
             "height": HEIGHT,
             "grid": rows,
@@ -703,6 +800,7 @@ class DungeonGame:
             "out_of_combat": self.is_out_of_combat(),
             "shop_tile": list(self.shop_tile) if self.shop_tile else None,
             "shop_stock": self.shop_stock,
+            "shop_reroll_price": self._reroll_price() if self.shop_tile else None,
             "players": [player_dict(p) for p in self.players.values()],
             "enemies": [
                 {
