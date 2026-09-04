@@ -155,6 +155,30 @@
     return set;
   }
 
+  // Cells surrounding a sunk ship (including diagonals) — since ships can
+  // never touch, these are guaranteed empty water, so we dot-mark them.
+  function sunkBorderCellSet(ships) {
+    const shipCells = new Set();
+    (ships || []).forEach((s) => {
+      if (s.sunk) s.cells.forEach(([x, y]) => shipCells.add(x + ',' + y));
+    });
+    const border = new Set();
+    (ships || []).forEach((s) => {
+      if (!s.sunk) return;
+      s.cells.forEach(([x, y]) => {
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx, ny = y + dy;
+            const key = nx + ',' + ny;
+            if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !shipCells.has(key)) border.add(key);
+          }
+        }
+      });
+    });
+    return border;
+  }
+
   function wouldFit(grid, cells) {
     for (const [cx, cy] of cells) {
       if (cx < 0 || cx >= 10 || cy < 0 || cy >= 10) return false;
@@ -283,14 +307,18 @@
     const grid = lastState.my_board;
     const shapeMap = shipShapeMap(lastState.my_ships);
     const sunkCells = shipSunkCellSet(lastState.my_ships);
+    const borderCells = sunkBorderCellSet(lastState.my_ships);
     for (let y = 0; y < 10; y++) {
       for (let x = 0; x < 10; x++) {
         const cell = document.createElement('div');
         const key = x + ',' + y;
-        cell.className = 'bs-cell ' + grid[y][x];
+        const val = grid[y][x];
+        cell.className = 'bs-cell ' + val;
         if (shapeMap[key]) {
           cell.classList.add(shapeMap[key]);
           if (sunkCells.has(key)) cell.classList.add('seg-sunk');
+        } else if (val === 'empty' && borderCells.has(key)) {
+          cell.classList.add('border-dot');
         }
         myBoardGrid.appendChild(cell);
       }
@@ -318,15 +346,18 @@
       grid.className = 'bs-grid';
       const canFire = myTurn && opp.alive;
       const shapeMap = shipShapeMap(opp.sunk_ships);
+      const borderCells = sunkBorderCellSet(opp.sunk_ships);
 
       for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 10; x++) {
           const cell = document.createElement('div');
+          const key = x + ',' + y;
           const val = opp.grid[y][x];
           cell.className = 'bs-cell ' + val;
           if (val === 'sunk') {
-            const key = x + ',' + y;
             if (shapeMap[key]) cell.classList.add(shapeMap[key]);
+          } else if (val === 'unknown' && borderCells.has(key)) {
+            cell.classList.add('border-dot');
           }
           if (canFire && val === 'unknown') {
             cell.classList.add('targetable');

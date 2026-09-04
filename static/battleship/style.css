@@ -220,6 +220,15 @@ body {
   filter: saturate(0.7) brightness(0.85);
 }
 
+/* dots ringing a sunk ship — those cells are guaranteed empty, ships never touch */
+.bs-cell.border-dot::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(159, 208, 232, 0.55);
+}
+
 .bs-cell.miss::after {
   content: "";
   width: 8px;

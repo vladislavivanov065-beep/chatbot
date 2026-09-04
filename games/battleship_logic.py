@@ -360,7 +360,7 @@ class BattleshipGame:
             base["opponents"][t] = {
                 "alive": opp["alive"],
                 "grid": self._fog_grid(player, opp),
-                "sunk_ships": [{"cells": s["cells"]} for s in opp["ships"] if s["sunk"]],
+                "sunk_ships": [{"cells": s["cells"], "sunk": True} for s in opp["ships"] if s["sunk"]],
             }
         base["turn_token"] = self.turn_order[self.current_idx] if self.turn_order and not self.finished else None
         base["is_my_turn"] = base["turn_token"] == token
