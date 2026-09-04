@@ -172,14 +172,6 @@ def on_draw_card(data):
     _dispatch(data, action)
 
 
-@socketio.on("pass_turn", namespace=NAMESPACE)
-def on_pass_turn(data):
-    def action(game, token, payload):
-        return game.submit_pass(token)
-
-    _dispatch(data, action)
-
-
 @socketio.on("call_uno", namespace=NAMESPACE)
 def on_call_uno(data):
     def action(game, token, payload):

@@ -24,7 +24,6 @@
   const discardPile = document.getElementById('discard-pile');
   const handCards = document.getElementById('hand-cards');
   const drawBtn = document.getElementById('draw-btn');
-  const passBtn = document.getElementById('pass-btn');
   const unoBtn = document.getElementById('uno-btn');
   const handHint = document.getElementById('hand-hint');
   const eventLog = document.getElementById('event-log');
@@ -201,7 +200,6 @@
   function renderActionButtons() {
     const s = lastState;
     drawBtn.disabled = !s.is_my_turn;
-    passBtn.hidden = !s.is_my_turn;
     unoBtn.hidden = !s.my_uno_pending;
   }
 
@@ -221,7 +219,6 @@
   });
 
   drawBtn.addEventListener('click', () => socket.emit('draw_card', { token, lobby_id: lobbyId }));
-  passBtn.addEventListener('click', () => socket.emit('pass_turn', { token, lobby_id: lobbyId }));
   unoBtn.addEventListener('click', () => socket.emit('call_uno', { token, lobby_id: lobbyId }));
 
   document.querySelectorAll('.color-btn').forEach((btn) => {

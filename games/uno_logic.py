@@ -7,13 +7,14 @@ model, Uno is strictly sequential (one player acts, then the next),
 so this mirrors Chess's alternating-turn pattern instead.
 
 House rules used below: drawing is always allowed even if you hold a
-playable card (not forced-play); a drawn card may be played
-immediately that same turn if it's legal, otherwise the turn passes;
-Wild Draw Four may only be played when you hold no card matching the
-current color (the standard tournament restriction); the UNO-call
-catch window stays open until the caller calls it, gets caught, or
-their hand size changes — there's no strict "before the next player's
-turn" cutoff.
+playable card (not forced-play); there is no separate "pass" action —
+every turn is resolved by either playing a legal card or drawing one,
+and drawing always ends the turn (the drawn card goes to your hand for
+a later turn, it is never played immediately); Wild Draw Four may only
+be played when you hold no card matching the current color (the
+standard tournament restriction); the UNO-call catch window stays open
+until the caller calls it, gets caught, or their hand size changes —
+there's no strict "before the next player's turn" cutoff.
 """
 import random
 import uuid
@@ -248,25 +249,13 @@ class UnoGame:
             return False, "Сейчас не ваш ход"
         drawn = self._draw_cards(token, 1)
         if not drawn:
-            return False, "Колода пуста"
-        card = drawn[0]
-        top = self.discard_pile[-1]
-        playable = card["color"] == self.current_color or card["value"] == top["value"] or _is_wild(card)
-        if card["value"] == "wild4" and playable:
-            has_matching_color = any(c["color"] == self.current_color for c in self.hands[token] if c["id"] != card["id"])
-            playable = not has_matching_color
-        self._log(f"{token} берёт карту из колоды.")
-        if not playable:
+            # deck and discard pile both exhausted (practically never happens);
+            # there's nothing left to draw, so just hand the turn onward.
+            self._log(f"{token}: колода пуста, ход передаётся дальше.")
             self._advance(1)
-        return True, None
-
-    def submit_pass(self, token):
-        if not self.started or self.finished:
-            return False, "Игра не идёт"
-        if self.current_player() != token:
-            return False, "Сейчас не ваш ход"
+            return True, None
+        self._log(f"{token} берёт карту из колоды и передаёт ход.")
         self._advance(1)
-        self._log(f"{token} пропускает ход.")
         return True, None
 
     def call_uno(self, token):
