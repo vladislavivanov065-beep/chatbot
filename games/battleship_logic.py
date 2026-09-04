@@ -4,9 +4,10 @@ No Flask/socket dependencies here. Classic Russian ruleset: 10x10 board,
 the standard 1x4-deck / 2x3-deck / 3x2-deck / 4x1-deck ship set, ships
 may not touch each other (even diagonally). Turn order is round-robin —
 on your turn you fire one shot at any single cell on any other living
-player's board, then the turn passes to the next living player
-regardless of hit or miss (a "everyone can be targeted" free-for-all,
-rather than fixed 1-on-1 pairs).
+player's board (a free-for-all — you can target anyone, not just a
+fixed opponent). A hit or a sink keeps the turn with the same shooter,
+same as classic single-player Battleship; the turn only passes to the
+next living player on a miss.
 """
 import random
 import uuid
@@ -197,18 +198,19 @@ class BattleshipGame:
             return False, "Сюда уже стреляли"
 
         ship_id = target["board_ship_at"].get((x, y))
+        was_hit = bool(ship_id)
         if ship_id:
             target["shots_at_me"][(x, y)] = "hit"
             ship = next(s for s in target["ships"] if s["id"] == ship_id)
             ship["hits"].add((x, y))
             if len(ship["hits"]) >= ship["size"]:
                 ship["sunk"] = True
-                self._log(f"{token} потопил корабль игрока {target_token} ({ship['size']} палуб(а)).")
+                self._log(f"{token} потопил корабль игрока {target_token} ({ship['size']} палуб(а)). Ход снова {token}.")
                 if all(s["sunk"] for s in target["ships"]):
                     target["alive"] = False
                     self._log(f"{target_token} выбывает из боя!")
             else:
-                self._log(f"{token} попал по полю {target_token}.")
+                self._log(f"{token} попал по полю {target_token}. Ход снова {token}.")
         else:
             target["shots_at_me"][(x, y)] = "miss"
             self._log(f"{token} промахнулся по полю {target_token}.")
@@ -220,8 +222,9 @@ class BattleshipGame:
             self.winner = alive[0] if alive else None
             if self.winner:
                 self._log(f"{self.winner} побеждает в морском бою!")
-        else:
+        elif not was_hit:
             self._advance_turn()
+        # a hit (or sink) keeps the turn with the same shooter
 
         return True, None
 

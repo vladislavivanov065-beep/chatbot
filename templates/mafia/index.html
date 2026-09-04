@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Мафия</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='mafia/style.css') }}">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <h1>🕵️ Мафия</h1>
+      <a href="{{ url_for('mafia.index') }}">← К лобби мафии</a>
+    </header>
+
+    <main id="layout">
+      <div class="card-panel" id="waiting-card">
+        <div class="status-line" id="waiting-status"></div>
+        <div id="waiting-role-summary"></div>
+        <div class="players-list" id="waiting-players"></div>
+        <div class="action-bar">
+          <button id="join-btn" class="btn">Присоединиться</button>
+          <button id="start-btn" class="btn btn-ghost" hidden>Начать игру</button>
+        </div>
+      </div>
+
+      <div class="card-panel" id="finished-card" hidden>
+        <div class="finished-banner" id="finished-banner"></div>
+        <div id="finished-roles"></div>
+        <h3>Журнал игры</h3>
+        <div id="finished-log"></div>
+      </div>
+
+      <div id="game-layout" hidden>
+        <div class="card-panel" id="status-panel">
+          <div class="status-line" id="phase-status"></div>
+          <div id="my-role-card"></div>
+        </div>
+
+        <div class="card-panel" id="players-panel">
+          <h3 style="margin-top:0;">Игроки</h3>
+          <div id="players-list"></div>
+          <p class="hint-text" id="action-hint"></p>
+          <div class="action-bar">
+            <button id="skip-btn" class="btn btn-ghost btn-small" hidden></button>
+          </div>
+        </div>
+
+        <div class="card-panel" id="role-info-panel" hidden>
+          <h3 style="margin-top:0;" id="role-info-title"></h3>
+          <div id="role-info-log"></div>
+        </div>
+
+        <div class="card-panel" id="chat-panel">
+          <h3 style="margin-top:0;" id="chat-title"></h3>
+          <div id="chat-messages"></div>
+          <form id="chat-form" class="action-bar">
+            <input type="text" id="chat-input" placeholder="Сообщение..." maxlength="300" autocomplete="off">
+            <button type="submit" class="btn btn-small">Отправить</button>
+          </form>
+        </div>
+
+        <div class="card-panel" id="log-panel">
+          <h3 style="margin-top:0;">Журнал</h3>
+          <div id="event-log"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='socket.io.min.js') }}"></script>
+  <script>
+    window.PLAYER_TOKEN = {{ token|tojson }};
+    window.LOBBY_ID = {{ lobby_id|tojson }};
+    window.IS_CREATOR = {{ is_creator|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='mafia/main.js') }}"></script>
+</body>
+</html>

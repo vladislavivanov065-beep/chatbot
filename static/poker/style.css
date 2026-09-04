@@ -1,0 +1,253 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: radial-gradient(circle at top, #0f3d2e 0%, #082a20 55%, #041712 100%);
+  color: #eafcef;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid #1f6b4c;
+}
+
+#topbar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+#topbar a {
+  margin-left: auto;
+  color: #a8d9be;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#topbar a:hover {
+  text-decoration: underline;
+}
+
+#layout {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 0 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(168, 217, 190, 0.18);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.status-line {
+  font-size: 14px;
+  color: #a8d9be;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.status-line b {
+  color: #fff;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #082a20;
+  background: linear-gradient(135deg, #ffd166, #e0a800);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.12);
+  color: #eafcef;
+}
+
+.btn-small {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.action-bar {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hint-text {
+  min-height: 18px;
+  font-size: 13px;
+  color: #a8d9be;
+  margin: 10px 0 0;
+}
+
+/* --- table / community cards --- */
+
+#community-cards {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  min-height: 88px;
+}
+
+.poker-card {
+  width: 60px;
+  height: 84px;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #fdfdfd, #e7e7e7);
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4px 6px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.poker-card.red { color: #c22b2b; }
+.poker-card.black { color: #1b1b1b; }
+
+.poker-card .rank-top { align-self: flex-start; }
+.poker-card .suit-mid { align-self: center; font-size: 20px; }
+.poker-card .rank-bottom { align-self: flex-end; transform: rotate(180deg); }
+
+.poker-card.face-down {
+  background: repeating-linear-gradient(135deg, #2a6f4f, #2a6f4f 6px, #1d4f38 6px, #1d4f38 12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+#my-hole-cards {
+  display: flex;
+  gap: 10px;
+  min-height: 94px;
+}
+
+#my-hole-cards .poker-card {
+  width: 68px;
+  height: 94px;
+  font-size: 17px;
+}
+
+/* --- seats --- */
+
+#seats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.seat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 2px solid transparent;
+}
+
+.seat-row.me {
+  border-color: rgba(255, 209, 102, 0.5);
+}
+
+.seat-row.turn {
+  border-color: #ffd166;
+  box-shadow: 0 0 8px rgba(255, 209, 102, 0.5);
+}
+
+.seat-row.folded {
+  opacity: 0.4;
+}
+
+.seat-row.all-in .seat-stack {
+  color: #ff9d90;
+}
+
+.seat-name {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dealer-chip {
+  background: #ffd166;
+  color: #082a20;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+}
+
+.seat-bet {
+  color: #a8d9be;
+  font-size: 12px;
+}
+
+.seat-stack {
+  font-weight: 700;
+}
+
+#raise-bar {
+  align-items: center;
+}
+
+#raise-slider {
+  flex: 1;
+}
+
+#raise-amount {
+  width: 90px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(168, 217, 190, 0.3);
+  background: rgba(0, 0, 0, 0.3);
+  color: #eafcef;
+}
+
+/* --- log --- */
+
+#event-log, #finished-log {
+  font-size: 12px;
+  color: #a8d9be;
+  max-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 3px;
+}
+
+.finished-banner {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  margin: 10px 0;
+}

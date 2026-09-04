@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Мафия — лобби</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+  <div class="card lobby-card">
+    <div class="lobby-topbar">
+      <h1 style="margin:0;">🕵️ Мафия</h1>
+      <a href="{{ url_for('lobby') }}" class="back-link">← В лобби</a>
+    </div>
+    <p class="subtitle">{{ min_players }}-{{ max_players_cap }} игроков, социальная дедукция с ночными ролями и голосованием</p>
+
+    {% if lobbies %}
+      <table class="lobby-table">
+        <thead>
+          <tr>
+            <th>Создатель</th>
+            <th>Игроки</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in lobbies %}
+          <tr>
+            <td>{{ l.creator }}</td>
+            <td>{{ l.players }} / {{ l.max_players }}</td>
+            <td><span class="lobby-status {{ l.status }}">
+              {{ {"waiting": "сбор игроков", "playing": "игра идёт", "finished": "игра окончена"}[l.status] }}
+            </span></td>
+            <td>
+              <a href="{{ url_for('mafia.lobby', lobby_id=l.lobby_id) }}">
+                <button type="button" class="btn btn-primary btn-small">Войти</button>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="lobby-empty">Активных игр пока нет — начните свою!</p>
+    {% endif %}
+
+    <div class="lobby-create-form">
+      <form method="POST" action="{{ url_for('mafia.create') }}">
+        <h3 style="margin-top:0;">Создать лобби</h3>
+
+        <select name="max_players" required>
+          <option value="4">4 игрока</option>
+          <option value="5">5 игроков</option>
+          <option value="6">6 игроков</option>
+          <option value="7">7 игроков</option>
+          <option value="8" selected>8 игроков</option>
+          <option value="9">9 игроков</option>
+          <option value="10">10 игроков</option>
+        </select>
+
+        <label style="display:block;text-align:left;font-weight:normal;margin-bottom:14px;">
+          Количество мафии
+          <input type="number" name="mafia_count" min="1" max="3" value="1" required style="margin-top:4px;">
+        </label>
+
+        <p style="text-align:left;color:#666;font-size:13px;margin:0 0 12px;">🩺 Врач участвует всегда — лечит одного игрока за ночь.</p>
+
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:10px 0;text-align:left;">
+          <input type="checkbox" name="sheriff" checked style="width:auto;margin:0;flex-shrink:0;">
+          🔎 Шериф — проверяет одного игрока за ночь, узнаёт мафия ли он
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:10px 0;text-align:left;">
+          <input type="checkbox" name="maniac" style="width:auto;margin:0;flex-shrink:0;">
+          🔪 Маньяк — независимый убийца, побеждает в одиночку, если выживет один
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:10px 0;text-align:left;">
+          <input type="checkbox" name="bodyguard" style="width:auto;margin:0;flex-shrink:0;">
+          🛡️ Телохранитель — жертвует собой ради того, кого защищает
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:10px 0;text-align:left;">
+          <input type="checkbox" name="lookout" style="width:auto;margin:0;flex-shrink:0;">
+          👀 Наблюдатель — видит, кто посещал выбранного игрока ночью
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin:10px 0 16px;text-align:left;">
+          <input type="checkbox" name="mayor" style="width:auto;margin:0;flex-shrink:0;">
+          🎖️ Мэр — его голос на дневном голосовании считается за два
+        </label>
+
+        <button type="submit" class="btn">Создать</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
