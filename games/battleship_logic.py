@@ -3,11 +3,12 @@
 No Flask/socket dependencies here. Classic Russian ruleset: 10x10 board,
 the standard 1x4-deck / 2x3-deck / 3x2-deck / 4x1-deck ship set, ships
 may not touch each other (even diagonally). Turn order is round-robin —
-on your turn you fire one shot at any single cell on any other living
-player's board (a free-for-all — you can target anyone, not just a
-fixed opponent). A hit or a sink keeps the turn with the same shooter,
-same as classic single-player Battleship; the turn only passes to the
-next living player on a miss.
+on your turn you pick a single cell and it is fired at that same (x, y)
+on every other living player's board at once (with 2 players this is
+just a regular single-target shot). Landing at least one hit anywhere
+keeps the turn with the same shooter, same as classic single-player
+Battleship; the turn only passes to the next living player when every
+board it was fired at comes back a miss.
 """
 import random
 import uuid
@@ -182,38 +183,58 @@ class BattleshipGame:
     def alive_tokens(self):
         return [t for t in self.turn_order if self.players[t]["alive"]]
 
-    def fire(self, token, target_token, x, y):
+    def fire(self, token, x, y):
         if self.phase != "playing" or self.finished:
             return False, "Бой ещё не идёт"
         if not self.turn_order or self.turn_order[self.current_idx] != token:
             return False, "Сейчас не ваш ход"
-        if target_token == token:
-            return False, "Нельзя стрелять по своему полю"
-        target = self.players.get(target_token)
-        if not target or not target["alive"]:
-            return False, "Недоступная цель"
         if not _in_bounds(x, y):
             return False, "Клетка вне поля"
-        if (x, y) in target["shots_at_me"]:
+        targets = [t for t in self.seat_order if t != token and self.players[t]["alive"]]
+        if not targets:
+            return False, "Нет доступных целей"
+        # A given target's history is missing every cell fired during that
+        # target's own past turns (you never fire at yourself), so targets
+        # can legitimately be out of sync with each other. Only fire at the
+        # ones that don't already have this cell recorded; if all of them
+        # do, there's nothing left to shoot here.
+        fresh_targets = [t for t in targets if (x, y) not in self.players[t]["shots_at_me"]]
+        if not fresh_targets:
             return False, "Сюда уже стреляли"
 
-        ship_id = target["board_ship_at"].get((x, y))
-        was_hit = bool(ship_id)
-        if ship_id:
+        any_hit = False
+        hit_tokens = []
+        sunk_events = []
+        eliminated = []
+        for target_token in fresh_targets:
+            target = self.players[target_token]
+            ship_id = target["board_ship_at"].get((x, y))
+            if not ship_id:
+                target["shots_at_me"][(x, y)] = "miss"
+                continue
+            any_hit = True
             target["shots_at_me"][(x, y)] = "hit"
             ship = next(s for s in target["ships"] if s["id"] == ship_id)
             ship["hits"].add((x, y))
             if len(ship["hits"]) >= ship["size"]:
                 ship["sunk"] = True
-                self._log(f"{token} потопил корабль игрока {target_token} ({ship['size']} палуб(а)). Ход снова {token}.")
+                sunk_events.append((target_token, ship["size"]))
                 if all(s["sunk"] for s in target["ships"]):
                     target["alive"] = False
-                    self._log(f"{target_token} выбывает из боя!")
+                    eliminated.append(target_token)
             else:
-                self._log(f"{token} попал по полю {target_token}. Ход снова {token}.")
-        else:
-            target["shots_at_me"][(x, y)] = "miss"
-            self._log(f"{token} промахнулся по полю {target_token}.")
+                hit_tokens.append(target_token)
+
+        if hit_tokens:
+            self._log(f"{token} попал по полю: {', '.join(hit_tokens)}.")
+        for target_token, size in sunk_events:
+            self._log(f"{token} потопил корабль игрока {target_token} ({size} палуб(а)).")
+        for target_token in eliminated:
+            self._log(f"{target_token} выбывает из боя!")
+        if not any_hit:
+            self._log(f"{token} промахнулся по всем полям.")
+        elif not self.finished:
+            self._log(f"Ход снова {token}.")
 
         alive = self.alive_tokens()
         if len(alive) <= 1:
@@ -222,9 +243,9 @@ class BattleshipGame:
             self.winner = alive[0] if alive else None
             if self.winner:
                 self._log(f"{self.winner} побеждает в морском бою!")
-        elif not was_hit:
+        elif not any_hit:
             self._advance_turn()
-        # a hit (or sink) keeps the turn with the same shooter
+        # landing at least one hit keeps the turn with the same shooter
 
         return True, None
 

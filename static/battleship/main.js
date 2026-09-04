@@ -25,17 +25,14 @@
 
   const battleLayout = document.getElementById('battle-layout');
   const battleStatus = document.getElementById('battle-status');
-  const targetsTabs = document.getElementById('targets-tabs');
   const myBoardGrid = document.getElementById('my-board-grid');
-  const targetBoardTitle = document.getElementById('target-board-title');
-  const targetBoardGrid = document.getElementById('target-board-grid');
+  const opponentBoardsEl = document.getElementById('opponent-boards');
   const battleHint = document.getElementById('battle-hint');
   const battleLog = document.getElementById('battle-log');
 
   let lastState = null;
   let heldShipSize = null;
   let orientation = true;   // true = horizontal
-  let selectedTarget = null;
   let ownCellEls = [];
 
   socket.on('connect', () => {
@@ -267,34 +264,18 @@
 
   function renderBattleScreen() {
     const s = lastState;
-    battleStatus.innerHTML = s.is_my_turn ? '<b>Ваш ход! Выберите цель и клетку.</b>' : `Ход игрока: <b>${s.turn_token}</b>`;
-    renderTargetsTabs();
-    renderMyBoard();
-    renderTargetBoard();
-    renderBattleLog();
-  }
-
-  function renderTargetsTabs() {
-    targetsTabs.innerHTML = '';
-    const opponents = lastState.opponents || {};
-    const keys = Object.keys(opponents);
-    if (!selectedTarget || !opponents[selectedTarget]) {
-      selectedTarget = (lastState.targets && lastState.targets[0]) || keys[0] || null;
+    const opponents = s.opponents || {};
+    const opponentCount = Object.keys(opponents).length;
+    if (s.is_my_turn) {
+      battleStatus.innerHTML = opponentCount > 1
+        ? '<b>Ваш ход! Кликните по клетке — выстрел ударит по всем полям соперников сразу.</b>'
+        : '<b>Ваш ход! Выберите клетку.</b>';
+    } else {
+      battleStatus.innerHTML = `Ход игрока: <b>${s.turn_token}</b>`;
     }
-    keys.forEach((t) => {
-      const opp = opponents[t];
-      const tab = document.createElement('div');
-      tab.className = 'target-tab' +
-        (t === selectedTarget ? ' selected' : '') +
-        (!opp.alive ? ' eliminated' : '') +
-        (lastState.turn_token === t ? ' my-turn-target' : '');
-      tab.textContent = t + (opp.alive ? '' : ' 💀');
-      tab.addEventListener('click', () => {
-        selectedTarget = t;
-        renderBattleScreen();
-      });
-      targetsTabs.appendChild(tab);
-    });
+    renderMyBoard();
+    renderOpponentBoards();
+    renderBattleLog();
   }
 
   function renderMyBoard() {
@@ -316,35 +297,51 @@
     }
   }
 
-  function renderTargetBoard() {
+  function renderOpponentBoards() {
     const opponents = lastState.opponents || {};
-    const opp = selectedTarget ? opponents[selectedTarget] : null;
-    targetBoardTitle.textContent = opp ? `Поле игрока ${selectedTarget}` : 'Нет доступных целей';
-    targetBoardGrid.innerHTML = '';
-    if (!opp) return;
+    const entries = Object.entries(opponents);
+    opponentBoardsEl.innerHTML = '';
 
-    const canFire = !!lastState.is_my_turn && opp.alive;
-    const shapeMap = shipShapeMap(opp.sunk_ships);
-    for (let y = 0; y < 10; y++) {
-      for (let x = 0; x < 10; x++) {
-        const cell = document.createElement('div');
-        const val = opp.grid[y][x];
-        cell.className = 'bs-cell ' + val;
-        if (val === 'sunk') {
-          const key = x + ',' + y;
-          if (shapeMap[key]) cell.classList.add(shapeMap[key]);
+    const myTurn = !!lastState.is_my_turn;
+    const anyAlive = entries.some(([, opp]) => opp.alive);
+
+    entries.forEach(([t, opp]) => {
+      const panel = document.createElement('div');
+      panel.className = 'board-panel';
+
+      const title = document.createElement('h3');
+      title.style.marginTop = '0';
+      title.textContent = `Поле игрока ${t}` + (opp.alive ? '' : ' 💀');
+      panel.appendChild(title);
+
+      const grid = document.createElement('div');
+      grid.className = 'bs-grid';
+      const canFire = myTurn && opp.alive;
+      const shapeMap = shipShapeMap(opp.sunk_ships);
+
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+          const cell = document.createElement('div');
+          const val = opp.grid[y][x];
+          cell.className = 'bs-cell ' + val;
+          if (val === 'sunk') {
+            const key = x + ',' + y;
+            if (shapeMap[key]) cell.classList.add(shapeMap[key]);
+          }
+          if (canFire && val === 'unknown') {
+            cell.classList.add('targetable');
+            cell.addEventListener('click', () => submit('fire', { x, y }));
+          }
+          grid.appendChild(cell);
         }
-        if (canFire && val === 'unknown') {
-          cell.classList.add('targetable');
-          cell.addEventListener('click', () => submit('fire', { target: selectedTarget, x, y }));
-        }
-        targetBoardGrid.appendChild(cell);
       }
-    }
+      panel.appendChild(grid);
+      opponentBoardsEl.appendChild(panel);
+    });
 
-    battleHint.textContent = canFire
-      ? 'Кликните по клетке, чтобы выстрелить.'
-      : (opp.alive ? 'Дождитесь своего хода.' : 'Этот игрок уже выбыл из боя.');
+    battleHint.textContent = myTurn
+      ? (anyAlive ? 'Кликните по любой клетке на любом поле — выстрел ударит все живые поля соперников одновременно.' : '')
+      : 'Дождитесь своего хода.';
   }
 
   function renderBattleLog() {

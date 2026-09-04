@@ -119,6 +119,10 @@ body {
   justify-content: center;
 }
 
+#opponent-boards {
+  display: contents;
+}
+
 .board-panel {
   display: flex;
   flex-direction: column;
@@ -303,39 +307,6 @@ body {
 
 .ready-row.ready {
   color: #7ee08c;
-}
-
-/* --- targets tabs --- */
-
-#targets-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.target-tab {
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  border: 2px solid transparent;
-}
-
-.target-tab.selected {
-  border-color: #6fd0f0;
-  background: rgba(111, 208, 240, 0.2);
-}
-
-.target-tab.eliminated {
-  opacity: 0.45;
-  text-decoration: line-through;
-}
-
-.target-tab.my-turn-target {
-  box-shadow: 0 0 8px rgba(111, 240, 150, 0.6);
 }
 
 /* --- log --- */

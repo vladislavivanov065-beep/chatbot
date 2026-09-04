@@ -201,7 +201,6 @@ def on_fire(data):
     def action(game, token, payload):
         return game.fire(
             token,
-            payload.get("target"),
             int(payload.get("x", -1)),
             int(payload.get("y", -1)),
         )

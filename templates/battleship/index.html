@@ -54,7 +54,7 @@
       <div id="battle-layout" hidden>
         <div class="card-panel" id="battle-status-panel">
           <div class="status-line" id="battle-status"></div>
-          <div id="targets-tabs"></div>
+          <p class="hint-text" id="battle-hint"></p>
         </div>
 
         <div class="card-panel" id="battle-boards">
@@ -62,11 +62,7 @@
             <h3 style="margin-top:0;">Моё поле</h3>
             <div id="my-board-grid" class="bs-grid"></div>
           </div>
-          <div class="board-panel">
-            <h3 id="target-board-title" style="margin-top:0;">Поле противника</h3>
-            <div id="target-board-grid" class="bs-grid"></div>
-            <p class="hint-text" id="battle-hint"></p>
-          </div>
+          <div id="opponent-boards"></div>
         </div>
 
         <div class="card-panel" id="battle-log-panel">
